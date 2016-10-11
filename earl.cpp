@@ -19,7 +19,6 @@
 #define SMALL_BIG_EXT 110
 #define LARGE_BIG_EXT 111
 #define MAP_EXT 116
-#define VERSION_HEADER 131
 
 #define DEBUG 1
 
@@ -28,104 +27,13 @@
 #include <string>
 #include <iostream>
 
-static PyObject* earl_pack(PyObject* self, PyObject *args){
-
-    std::string package;
-    std::vector<PyObject*> objects;
-    Py_ssize_t len = PyTuple_Size(args);
-
-    if ( !len ){
-        if ( !PyErr_Occurred() ){
-
-            PyErr_SetString(PyExc_SyntaxError, "You must supply at least one argument.");
-
-        }
-
-        return NULL;
-
-    }
-
-    package = "\x" + std::to_string(VERSION_HEADER);
-
-    for (int i={0}; i < len; i++){
-
-        PyObject* temp = PyTuple_GetItem(args, i);
-
-        if ( temp == NULL ){
-
-            if( !PyErr_Occurred() ){
-
-                PyErr_SetString(PyExc_TypeError, "Earl wasn't able to unpack all your arguments for some reason.");
-
-            }
-            return NULL;
-
-        }
-
-        switch(true){
-
-            case PyLong_Check(temp):
-                unsigned long temp_int = PyLong_AsUnsignedLong(temp);
-                temp_int < 256 ? package += etf_small_int(temp_int) : package += etf_big_int(temp_int);
-                break;
-            case PyFloat_Check(temp):
-                //package += etf_float(PyFloat_AsDouble(temp));
-                break;
-            case PyUnicode_Check(temp):
-                if (PyUnicode_READY(temp) != 0){
-
-                    if( !PyErr_Occurred() ){
-
-                        PyErr_SetString(PyExc_RuntimeError, "Earl wasn't able to migrate the Python Unicode data to memory.");
-
-                    }
-                    return NULL;
-
-                }else{
-
-                    package += etf_string(temp);
-
-                }
-                break;
-            case PyTuple_Check(temp):
-                //package += etf_tuple(temp);
-                break;
-            case PyList_Check(temp):
-                //package += etf_list(temp);
-                break;
-            case PyDict_Check(temp):
-                //package += etf_dictionary(temp);
-                break;
-            case PySet_Check(temp):
-                //package += etf_set(temp);
-                break;
-            default:
-                if ( !PyErr_Occurred() ){
-
-                    PyErr_SetString(PyExc_TypeError, "Earl can't pack one of the types you gave it!");
-
-                }
-                return NULL;
-
-        }
-
-    }
-
-    #if debug == 1
-    std::cout << "Debug Post Expansion: " << package << std::endl;
-    #endif
-
-    return Py_BuildValue("s", package.c_str());
-
-}
-
 std::string etf_small_int(int value){
 
-    return std::to_string(SMALL_INTEGER_EXT) + std::to_string(value)
+    return std::to_string(SMALL_INTEGER_EXT) + std::to_string(value);
 
 }
 
-std::string etf_big_int(value){
+std::string etf_big_int(unsigned long value){
 
     std::string buffer = std::to_string(INTEGER_EXT);
     buffer += (value >> 24) & 0xFF;
@@ -137,17 +45,17 @@ std::string etf_big_int(value){
 
 }
 
-std::string etf_string(value){
+std::string etf_string(PyObject *value){
 
     int len = PyUnicode_GET_LENGTH(value);
     int kind = PyUnicode_KIND(value);
     std::string buffer = "";
 
-    if ((len == NULL or !len) or (kind == NULL or !kind)){
+    if (!len or !kind){
 
         if ( !PyErr_Occurred() ){
 
-            PyErr_SetString(PyExc_RuntimeError, "Failed to process the python string.")
+            PyErr_SetString(PyExc_RuntimeError, "Failed to process the python string.");
 
         }
 
@@ -165,6 +73,83 @@ std::string etf_string(value){
 
 }
 
+static PyObject* earl_pack(PyObject* self, PyObject *args){
+
+    std::string package;
+    std::vector<PyObject*> objects;
+    Py_ssize_t len = PyTuple_Size(args);
+
+    if( !len ){
+        if( !PyErr_Occurred() ){
+
+            PyErr_SetString(PyExc_SyntaxError, "You must supply at least one argument.");
+
+        }
+
+        return NULL;
+
+    }
+
+    package = "\x83";
+
+    for( int i={0}; i < len; i++ ){
+
+        PyObject* temp = PyTuple_GetItem(args, i);
+
+        if( temp == NULL ){
+
+            if( !PyErr_Occurred() ){
+
+                PyErr_SetString(PyExc_TypeError, "Earl wasn't able to unpack all your arguments for some reason.");
+
+            }
+            return NULL;
+
+        }
+
+        if( PyLong_Check(temp) ){
+
+            unsigned long temp_int = PyLong_AsUnsignedLong(temp);
+            temp_int < 256 ? package += etf_small_int(temp_int) : package += etf_big_int(temp_int);
+
+        } else if( PyUnicode_Check(temp) ) {
+
+            if( PyUnicode_READY(temp) != 0 ){
+
+                if( !PyErr_Occurred() ){
+
+                    PyErr_SetString(PyExc_RuntimeError, "Earl wasn't able to migrate the Python Unicode data to memory.");
+
+                }
+                return NULL;
+
+            }else{
+
+                package += etf_string(temp);
+
+            }
+
+        }else{
+
+            if ( !PyErr_Occurred() ){
+
+                PyErr_SetString(PyExc_TypeError, "Earl can't pack one of the types you gave it!");
+
+            }
+            return NULL;
+
+        }
+
+    }
+
+    #if debug == 1
+    std::cout << "Debug Post Expansion: " << package << std::endl;
+    #endif
+
+    return Py_BuildValue("s", package.c_str());
+
+}
+
 static char earl_pack_docs[] = "pack(values): Pack a bunch of things into an External Term Format";
 
 static PyMethodDef earlmethods[] = {
@@ -174,7 +159,7 @@ static PyMethodDef earlmethods[] = {
 
 };
 
-static struct PyMethodDef earl = {
+static struct PyModuleDef earl = {
 
     PyModuleDef_HEAD_INIT,
     "earl",
