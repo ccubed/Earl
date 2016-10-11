@@ -45,7 +45,7 @@ static PyObject* earl_pack(PyObject* self, PyObject *args){
 
     }
 
-    package = char(VERSION_HEADER);
+    package = "\x" + std::to_string(VERSION_HEADER);
 
     for (int i={0}; i < len; i++){
 
@@ -53,7 +53,11 @@ static PyObject* earl_pack(PyObject* self, PyObject *args){
 
         if ( temp == NULL ){
 
-            PyErr_SetString(PyExc_TypeError, "Earl wasn't able to unpack all your arguments for some reason.");
+            if( !PyErr_Occurred() ){
+
+                PyErr_SetString(PyExc_TypeError, "Earl wasn't able to unpack all your arguments for some reason.");
+
+            }
             return NULL;
 
         }
@@ -65,12 +69,16 @@ static PyObject* earl_pack(PyObject* self, PyObject *args){
                 temp_int < 256 ? package += etf_small_int(temp_int) : package += etf_big_int(temp_int);
                 break;
             case PyFloat_Check(temp):
-                package += etf_float(PyFloat_AsDouble(temp));
+                //package += etf_float(PyFloat_AsDouble(temp));
                 break;
             case PyUnicode_Check(temp):
                 if (PyUnicode_READY(temp) != 0){
 
-                    PyErr_SetString(PyExc_RuntimeError, "Earl wasn't able to migrate the Python Unicode data to memory.");
+                    if( !PyErr_Occurred() ){
+
+                        PyErr_SetString(PyExc_RuntimeError, "Earl wasn't able to migrate the Python Unicode data to memory.");
+
+                    }
                     return NULL;
 
                 }else{
@@ -80,19 +88,23 @@ static PyObject* earl_pack(PyObject* self, PyObject *args){
                 }
                 break;
             case PyTuple_Check(temp):
-                package += etf_tuple(temp);
+                //package += etf_tuple(temp);
                 break;
             case PyList_Check(temp):
-                package += etf_list(temp);
+                //package += etf_list(temp);
                 break;
             case PyDict_Check(temp):
-                package += etf_dictionary(temp);
+                //package += etf_dictionary(temp);
                 break;
             case PySet_Check(temp):
-                package += etf_set(temp);
+                //package += etf_set(temp);
                 break;
             default:
-                PyErr_SetString(PyExc_TypeError, "Earl can't pack one of the types you gave it!");
+                if ( !PyErr_Occurred() ){
+
+                    PyErr_SetString(PyExc_TypeError, "Earl can't pack one of the types you gave it!");
+
+                }
                 return NULL;
 
         }
@@ -102,5 +114,78 @@ static PyObject* earl_pack(PyObject* self, PyObject *args){
     #if debug == 1
     std::cout << "Debug Post Expansion: " << package << std::endl;
     #endif
+
+    return Py_BuildValue("s", package.c_str());
+
+}
+
+std::string etf_small_int(int value){
+
+    return std::to_string(SMALL_INTEGER_EXT) + std::to_string(value)
+
+}
+
+std::string etf_big_int(value){
+
+    std::string buffer = std::to_string(INTEGER_EXT);
+    buffer += (value >> 24) & 0xFF;
+    buffer += (value >> 16) & 0xFF;
+    buffer += (value >> 8) & 0xFF;
+    buffer += value & 0xFF;
+
+    return buffer;
+
+}
+
+std::string etf_string(value){
+
+    int len = PyUnicode_GET_LENGTH(value);
+    int kind = PyUnicode_KIND(value);
+    std::string buffer = "";
+
+    if ((len == NULL or !len) or (kind == NULL or !kind)){
+
+        if ( !PyErr_Occurred() ){
+
+            PyErr_SetString(PyExc_RuntimeError, "Failed to process the python string.")
+
+        }
+
+        return NULL;
+
+    }
+
+    for( int i={0}; i < len; i++){
+
+        buffer += std::to_string(PyUnicode_READ(kind, PyUnicode_DATA(value), i));
+
+    }
+
+    return buffer;
+
+}
+
+static char earl_pack_docs[] = "pack(values): Pack a bunch of things into an External Term Format";
+
+static PyMethodDef earlmethods[] = {
+
+    {"pack", earl_pack, METH_VARARGS, earl_pack_docs},
+    {NULL, NULL, 0, NULL}
+
+};
+
+static struct PyMethodDef earl = {
+
+    PyModuleDef_HEAD_INIT,
+    "earl",
+    "Earl is the fanciest External Term Format library for Python.",
+    -1,
+    earlmethods
+
+};
+
+PyMODINIT_FUNC PyInit_earl(void){
+
+    return PyModule_Create(&earl);
 
 }
