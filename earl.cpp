@@ -5,41 +5,40 @@
  * Copyright 2016 Charles Click under the MIT License.
  */
 
-#define FLOAT_IEEE_EXT 70
-#define BIT_BINARY_EXT 77
-#define SMALL_INTEGER_EXT 97
-#define INTEGER_EXT 98
-#define FLOAT_EXT 99
-#define SMALL_TUPLE_EXT 104
-#define LARGE_TUPLE_EXT 105
-#define NIL_EXT 106
-#define STRING_EXT 107
-#define LIST_EXT 108
-#define BINARY_EXT 109
-#define SMALL_BIG_EXT 110
-#define LARGE_BIG_EXT 111
-#define MAP_EXT 116
-
-#define DEBUG 1
+#define FLOAT_IEEE_EXT "F"
+#define BIT_BINARY_EXT "M"
+#define SMALL_INTEGER_EXT "a"
+#define INTEGER_EXT "b"
+#define FLOAT_EXT "c"
+#define SMALL_TUPLE_EXT "h"
+#define LARGE_TUPLE_EXT "i"
+#define NIL_EXT "j"
+#define STRING_EXT "k"
+#define LIST_EXT "l"
+#define BINARY_EXT "m"
+#define SMALL_BIG_EXT "n"
+#define LARGE_BIG_EXT "o"
+#define MAP_EXT "t"
 
 #include <Python.h>
 #include <vector>
 #include <string>
-#include <iostream>
 
 std::string etf_small_int(int value){
 
-    return std::to_string(SMALL_INTEGER_EXT) + std::to_string(value);
+    std::string buffer = SMALL_INTEGER_EXT;
+    buffer += char(value);
+    return buffer;
 
 }
 
 std::string etf_big_int(unsigned long value){
 
-    std::string buffer = std::to_string(INTEGER_EXT);
-    buffer += (value >> 24) & 0xFF;
-    buffer += (value >> 16) & 0xFF;
-    buffer += (value >> 8) & 0xFF;
-    buffer += value & 0xFF;
+    std::string buffer = INTEGER_EXT;
+    buffer += ((value >> 24) & 0xFF);
+    buffer += ((value >> 16) & 0xFF);
+    buffer += ((value >> 8) & 0xFF);
+    buffer += (value & 0xFF);
 
     return buffer;
 
@@ -49,7 +48,10 @@ std::string etf_string(PyObject *value){
 
     int len = PyUnicode_GET_LENGTH(value);
     int kind = PyUnicode_KIND(value);
-    std::string buffer = "";
+    
+    std::string buffer = STRING_EXT;
+    buffer += (len >> 8) & 0xFF;
+    buffer += len & 0xFF;
 
     if (!len or !kind){
 
@@ -65,13 +67,70 @@ std::string etf_string(PyObject *value){
 
     for( int i={0}; i < len; i++){
 
-        buffer += std::to_string(PyUnicode_READ(kind, PyUnicode_DATA(value), i));
+        buffer += char(PyUnicode_READ(kind, PyUnicode_DATA(value), i));
 
     }
 
     return buffer;
 
 }
+
+std::string etf_float(double value){
+    
+    std::string buffer = FLOAT_IEEE_EXT;
+    
+    unsigned char const * p = reinterpret_cast<unsigned char const *>(&value);
+    
+    for ( int i={0}; i < sizeof(p); i++ ){
+        
+        buffer += (int(p[7-i]) & 0xFF);
+       
+    }
+    
+    return buffer;
+    
+}
+
+std::string etf_tuple(PyObject* tuple){
+    
+    Py_ssize_t len = PyTuple_Size(tuple);
+    std::string buffer;
+    
+    if ( len > 256 ){
+    
+        buffer = LARGE_TUPLE_EXT;
+        buffer += len & 0xFF;
+        
+        for( int ii={0}; ii < len; ii++ ){
+        
+            PyObject* temp = PyTuple_GetItem(tuple, ii);
+            
+            buffer += SMALL_INTEGER_EXT;
+            buffer += char(PyLong_AsUnsignedLong(temp));
+        
+        }
+    
+    } else {
+    
+        buffer = SMALL_TUPLE_EXT;
+        buffer += char(len);
+        
+        for( int ii={0}; ii < len; ii++ ){
+            
+            PyObject* temp = PyTuple_GetItem(tuple, ii);
+            
+            buffer += SMALL_INTEGER_EXT;
+            buffer += char(PyLong_AsUnsignedLong(temp));
+            
+        }
+    
+    }
+    
+    return buffer;
+    
+}
+
+
 
 static PyObject* earl_pack(PyObject* self, PyObject *args){
 
@@ -80,6 +139,7 @@ static PyObject* earl_pack(PyObject* self, PyObject *args){
     Py_ssize_t len = PyTuple_Size(args);
 
     if( !len ){
+        
         if( !PyErr_Occurred() ){
 
             PyErr_SetString(PyExc_SyntaxError, "You must supply at least one argument.");
@@ -129,6 +189,29 @@ static PyObject* earl_pack(PyObject* self, PyObject *args){
 
             }
 
+        }else if( PyFloat_Check(temp) ){
+        
+            package += etf_float(PyFloat_AsDouble(temp));
+    
+        }else if( PyTuple_Check(temp) ){
+        
+            package += etf_tuple(temp);
+        
+        }else if( PySet_Check(temp) ){
+        
+            //package += etf_set(temp);
+            break;
+        
+        }else if( PyList_Check(temp) ){
+        
+            //package += etf_listt(temp);
+            break;
+        
+        }else if( PyDict_Check(temp) ){
+        
+            //package += etf_dict(temp);
+            break;
+        
         }else{
 
             if ( !PyErr_Occurred() ){
@@ -142,11 +225,7 @@ static PyObject* earl_pack(PyObject* self, PyObject *args){
 
     }
 
-    #if debug == 1
-    std::cout << "Debug Post Expansion: " << package << std::endl;
-    #endif
-
-    return Py_BuildValue("s", package.c_str());
+    return Py_BuildValue("y#", package.c_str(), package.length());
 
 }
 
