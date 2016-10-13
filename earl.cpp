@@ -96,33 +96,15 @@ std::string etf_tuple(PyObject* tuple){
     Py_ssize_t len = PyTuple_Size(tuple);
     std::string buffer;
     
-    if ( len > 256 ){
-    
-        buffer = LARGE_TUPLE_EXT;
-        buffer += len & 0xFF;
+    buffer = (len > 256 ? LARGE_TUPLE_EXT : SMALL_TUPLE_EXT);
+    buffer += (len > 256 ? (len & 0xFF) : char(len));
         
-        for( int ii={0}; ii < len; ii++ ){
+    for( int ii={0}; ii < len; ii++ ){
         
-            PyObject* temp = PyTuple_GetItem(tuple, ii);
+        PyObject* temp = PyTuple_GetItem(tuple, ii);
             
-            buffer += SMALL_INTEGER_EXT;
-            buffer += char(PyLong_AsUnsignedLong(temp));
-        
-        }
-    
-    } else {
-    
-        buffer = SMALL_TUPLE_EXT;
-        buffer += char(len);
-        
-        for( int ii={0}; ii < len; ii++ ){
-            
-            PyObject* temp = PyTuple_GetItem(tuple, ii);
-            
-            buffer += SMALL_INTEGER_EXT;
-            buffer += char(PyLong_AsUnsignedLong(temp));
-            
-        }
+        buffer += SMALL_INTEGER_EXT;
+        buffer += char(PyLong_AsUnsignedLong(temp));
     
     }
     
@@ -199,12 +181,12 @@ static PyObject* earl_pack(PyObject* self, PyObject *args){
         
         }else if( PySet_Check(temp) ){
         
-            //package += etf_set(temp);
+            package += etf_set(temp);
             break;
         
         }else if( PyList_Check(temp) ){
         
-            //package += etf_listt(temp);
+            //package += etf_list(temp);
             break;
         
         }else if( PyDict_Check(temp) ){
