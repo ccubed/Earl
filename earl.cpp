@@ -26,6 +26,10 @@
 #define LARGE_BIG_EXT "o"
 #define MAP_EXT "t"
 
+#if _MSC_VER // MSVC doesn't support or
+#define or ||
+#endif
+
 // Function Prototypes
 std::string etf_small_int(int value);
 std::string etf_big_int(unsigned long value);
