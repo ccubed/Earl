@@ -11,20 +11,20 @@
  #include <vector>
 
 // External Term Format Defines
-#define FLOAT_IEEE_EXT "F"
-#define BIT_BINARY_EXT "M"
-#define SMALL_INTEGER_EXT "a"
-#define INTEGER_EXT "b"
-#define FLOAT_EXT "c"
-#define SMALL_TUPLE_EXT "h"
-#define LARGE_TUPLE_EXT "i"
-#define NIL_EXT "j"
-#define STRING_EXT "k"
-#define LIST_EXT "l"
-#define BINARY_EXT "m"
-#define SMALL_BIG_EXT "n"
-#define LARGE_BIG_EXT "o"
-#define MAP_EXT "t"
+#define FLOAT_IEEE_EXT 'F'
+#define BIT_BINARY_EXT 'M'
+#define SMALL_INTEGER_EXT 'a'
+#define INTEGER_EXT 'b'
+#define FLOAT_EXT 'c'
+#define SMALL_TUPLE_EXT 'h'
+#define LARGE_TUPLE_EXT 'i'
+#define NIL_EXT 'j'
+#define STRING_EXT 'k'
+#define LIST_EXT 'l'
+#define BINARY_EXT 'm'
+#define SMALL_BIG_EXT 'n'
+#define LARGE_BIG_EXT 'o'
+#define MAP_EXT 't'
 
 #if _MSC_VER // MSVC doesn't support or
 #define or ||
@@ -287,6 +287,53 @@ std::string etf_pack_item(PyObject* temp){
 
 }
 
+PyObject* etfup_bytes(PyObject* item){
+    
+    std::string buffer(PyBytes_AsString(item));
+    int pos = 0;
+    
+    for( pos; pos < buffer.length()-1; pos++ ){
+        
+        if( buffer[ii] == INTEGER_EXT or buffer[ii] == SMALL_INTEGER_EXT ){
+            
+            
+            
+        } else if( buffer[ii] == FLOAT_IEEE_EXT or buffer[ii] == FLOAT_EXT ){
+            
+            
+            
+        } else if( buffer[ii] == LIST_EXT ){
+            
+            
+            
+        } else if( buffer[ii] == MAP_EXT ){
+            
+            
+            
+        } else if( buffer[ii] == STRING_EXT ){
+            
+            
+            
+        } else if( buffer[ii] == SMALL_TUPLE_EXT or buffer[ii] = LARGE_TUPLE_EXT ){
+            
+            
+            
+        }
+        
+    }
+    
+}
+
+PyObject* etfup_str(PyObject* item);
+PyObject* etfup_small_int(int value);
+PyObject* etfup_big_int(unsigned long value);
+PyObject* etfup_string(std::string text);
+PyObject* etfup_float(double value);
+PyObject* etfup_tuple(std::vector tuple);
+PyObject* etfup_set(std::vector set);
+PyObject* etfup_list(std::vector list);
+PyObject* etfup_dict(std::string etfbytes);
+
 static PyObject* earl_pack(PyObject* self, PyObject *args){
 
   std::string package;
@@ -398,15 +445,13 @@ static PyObject* earl_unpack(PyObject* self, PyObject *args){
     
     } else {
         
-        PyObject* return_value;
-        
         if( PyBytes_Check(temp) ){
             
-            return_value = etfup_bytes(PyTuple_GetItem(tuple, 0));
+            return Py_BuildValue("O", etfup_bytes(PyTuple_GetItem(tuple, 0)));
             
         } else if( PyUnicode_Check(temp) ){
             
-            return_value = etfup_str(PyTuple_GetItem(tuple, 0));
+            return Py_BuildValue("O", etfup_str(PyTuple_GetItem(tuple, 0)));
             
         } else {
             
@@ -418,8 +463,6 @@ static PyObject* earl_unpack(PyObject* self, PyObject *args){
             }
             
         }
-        
-        return Py_BuildValue("O", return_value);
         
     }
     
