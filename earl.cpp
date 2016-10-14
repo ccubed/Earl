@@ -5,6 +5,12 @@
  * Copyright 2016 Charles Click under the MIT License.
  */
 
+ // Includes
+ #include <Python.h>
+ #include <vector>
+ #include <string>
+
+// External Term Format Defines
 #define FLOAT_IEEE_EXT "F"
 #define BIT_BINARY_EXT "M"
 #define SMALL_INTEGER_EXT "a"
@@ -20,9 +26,17 @@
 #define LARGE_BIG_EXT "o"
 #define MAP_EXT "t"
 
-#include <Python.h>
-#include <vector>
-#include <string>
+// Function Prototypes
+std::string etf_small_int(int value);
+std::string etf_big_int(unsigned long value);
+std::string etf_string(PyObject* value);
+std::string etf_float(double value);
+std::string etf_tuple(PyObject* tuple);
+std::string etf_set(PyObject* set);
+std::string etf_list(PyObject* list);
+std::string etf_dict(PyObject* dict);
+std::string etf_item(PyObject* object);
+
 
 std::string etf_small_int(int value){
 
@@ -80,9 +94,15 @@ std::string etf_float(double value){
 
   unsigned char const * p = reinterpret_cast<unsigned char const *>(&value);
 
-  for ( int i={0}; i < sizeof(p); i++ ){
+  if ( sizeof(p) < 8 ){
 
-      buffer += (int(p[7-i]) & 0xFF);
+    return NULL;
+
+  }
+
+  for ( int ii={0}; ii < 8; ii++ ){
+
+      buffer += (int(p[7-ii]) & 0xFF);
 
   }
 
@@ -93,10 +113,20 @@ std::string etf_float(double value){
 std::string etf_tuple(PyObject* tuple){
 
   Py_ssize_t len = PyTuple_Size(tuple);
-  std::string buffer;
+  std::string buffer = (len > 256 ? LARGE_TUPLE_EXT : SMALL_TUPLE_EXT);
 
-  buffer = (len > 256 ? LARGE_TUPLE_EXT : SMALL_TUPLE_EXT);
-  buffer += (len > 256 ? (len & 0xFF) : char(len));
+  if( len > 256 ){
+
+    buffer += ((len >> 24) & 0xFF);
+    buffer += ((len >> 16) & 0xFF);
+    buffer += ((len >> 8) & 0xFF);
+    buffer += (len & 0xFF);
+
+  } else {
+
+    buffer += (len & 0xFF);
+
+  }
 
   for( int ii={0}; ii < len; ii++ ){
 
@@ -113,9 +143,11 @@ std::string etf_tuple(PyObject* tuple){
 std::string etf_set(PyObject* set){
 
   Py_ssize_t len = PySet_Size(set);
-  std::string buffer;
+  std::string buffer = LIST_EXT;
 
-  buffer = LIST_EXT;
+  buffer += ((len >> 24) & 0xFF);
+  buffer += ((len >> 16) & 0xFF);
+  buffer += ((len >> 8) & 0xFF);
   buffer += (len & 0xFF);
 
   for( int ii={0}; ii < len; ii++ ){
@@ -134,6 +166,10 @@ std::string etf_list(PyObject* list){
 
   Py_ssize_t len = PyList_Size(list);
   std::string buffer = LIST_EXT;
+
+  buffer += ((len >> 24) & 0xFF);
+  buffer += ((len >> 16) & 0xFF);
+  buffer += ((len >> 8) & 0xFF);
   buffer += (len & 0xFF);
 
   for( int ii={0}; ii < len; ii++ ){
@@ -151,23 +187,28 @@ std::string etf_list(PyObject* list){
 std::string etf_dict(PyObject* dict){
 
   Py_ssize_t len = PyDict_Size(dict);
-  std::string buffer = LIST_EXT;
+  std::string buffer = MAP_EXT;
+
+  buffer += ((len >> 24) & 0xFF);
+  buffer += ((len >> 16) & 0xFF);
+  buffer += ((len >> 8) & 0xFF);
   buffer += (len & 0xFF);
+
   len = 0;
   PyObject *k, *v;
 
   while( PyDict_Next(dict, &len, &k, &v) ){
 
+    buffer += etf_item(k);
     buffer += etf_item(v);
 
   }
 
-  buffer += NIL_EXT;
   return buffer;
 
 }
 
-std::string etf_item(PyObject* object){
+std::string etf_item(PyObject* temp){
 
   std::string buffer;
 
@@ -204,17 +245,14 @@ std::string etf_item(PyObject* object){
   }else if( PySet_Check(temp) ){
 
     buffer += etf_set(temp);
-    break;
 
   }else if( PyList_Check(temp) ){
 
     buffer += etf_list(temp);
-    break;
 
   }else if( PyDict_Check(temp) ){
 
     buffer += etf_dict(temp);
-    break;
 
   }else{
 

@@ -1,10 +1,11 @@
 Metadata-Version: 1.0
 Name: Earl
-Version: 1.0.9
+Version: 1.2
 Summary: Earl, the fanciest External Term Format packer and unpacker available for Python.
-Home-page: UNKNOWN
-Author: UNKNOWN
-Author-email: UNKNOWN
-License: UNKNOWN
+Home-page: https://github.com/ccubed/Earl
+Author: Charles Click
+Author-email: CharlesClick@vertinext.com
+License: MIT
 Description: UNKNOWN
+Keywords: Erlang ETF External Term Format
 Platform: UNKNOWN
