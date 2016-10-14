@@ -7,8 +7,8 @@
 
  // Includes
  #include <Python.h>
- #include <vector>
  #include <string>
+ #include <vector>
 
 // External Term Format Defines
 #define FLOAT_IEEE_EXT "F"
@@ -31,18 +31,32 @@
 #endif
 
 // Function Prototypes
-std::string etf_small_int(int value);
-std::string etf_big_int(unsigned long value);
-std::string etf_string(PyObject* value);
-std::string etf_float(double value);
-std::string etf_tuple(PyObject* tuple);
-std::string etf_set(PyObject* set);
-std::string etf_list(PyObject* list);
-std::string etf_dict(PyObject* dict);
-std::string etf_item(PyObject* object);
+// Packing Functions
+std::string etfp_small_int(int value);
+std::string etfp_big_int(unsigned long value);
+std::string etfp_string(PyObject* value);
+std::string etfp_float(double value);
+std::string etfp_tuple(PyObject* tuple);
+std::string etfp_set(PyObject* set);
+std::string etfp_list(PyObject* list);
+std::string etfp_dict(PyObject* dict);
+std::string etf_pack_item(PyObject* object);
+static earl_pack(PyObject* self, PyObject* args);
+// Unpacking Functions
+PyObject* etfup_bytes(PyObject* item);
+PyObject* etfup_str(PyObject* item);
+PyObject* etfup_small_int(int value);
+PyObject* etfup_big_int(unsigned long value);
+PyObject* etfup_string(std::string text);
+PyObject* etfup_float(double value);
+PyObject* etfup_tuple(std::vector tuple);
+PyObject* etfup_set(std::vector set);
+PyObject* etfup_list(std::vector list);
+PyObject* etfup_dict(std::string etfbytes); // We have to parse this as the bytes by itself or we'll lose the depth.
+static earl_unpack(PyObject* self, PyObject* args);
+// End Function Prototypes
 
-
-std::string etf_small_int(int value){
+std::string etfp_small_int(int value){
 
   std::string buffer = SMALL_INTEGER_EXT;
   buffer += char(value);
@@ -50,7 +64,7 @@ std::string etf_small_int(int value){
 
 }
 
-std::string etf_big_int(unsigned long value){
+std::string etfp_big_int(unsigned long value){
 
   std::string buffer = INTEGER_EXT;
   buffer += ((value >> 24) & 0xFF);
@@ -62,7 +76,7 @@ std::string etf_big_int(unsigned long value){
 
 }
 
-std::string etf_string(PyObject *value){
+std::string etfp_string(PyObject *value){
 
   int len = PyUnicode_GET_LENGTH(value);
   int kind = PyUnicode_KIND(value);
@@ -92,7 +106,7 @@ std::string etf_string(PyObject *value){
 
 }
 
-std::string etf_float(double value){
+std::string etfp_float(double value){
 
   std::string buffer = FLOAT_IEEE_EXT;
 
@@ -114,7 +128,7 @@ std::string etf_float(double value){
 
 }
 
-std::string etf_tuple(PyObject* tuple){
+std::string etfp_tuple(PyObject* tuple){
 
   Py_ssize_t len = PyTuple_Size(tuple);
   std::string buffer = (len > 256 ? LARGE_TUPLE_EXT : SMALL_TUPLE_EXT);
@@ -136,7 +150,7 @@ std::string etf_tuple(PyObject* tuple){
 
       PyObject* temp = PyTuple_GetItem(tuple, ii);
 
-      buffer += etf_item(temp);
+      buffer += etf_pack_item(temp);
 
   }
 
@@ -144,7 +158,7 @@ std::string etf_tuple(PyObject* tuple){
 
 }
 
-std::string etf_set(PyObject* set){
+std::string etfp_set(PyObject* set){
 
   Py_ssize_t len = PySet_Size(set);
   std::string buffer = LIST_EXT;
@@ -157,7 +171,7 @@ std::string etf_set(PyObject* set){
   for( int ii={0}; ii < len; ii++ ){
 
     PyObject* temp = PySet_Pop(set);
-    buffer += etf_item(temp);
+    buffer += etf_pack_item(temp);
 
   }
 
@@ -166,7 +180,7 @@ std::string etf_set(PyObject* set){
 
 }
 
-std::string etf_list(PyObject* list){
+std::string etfp_list(PyObject* list){
 
   Py_ssize_t len = PyList_Size(list);
   std::string buffer = LIST_EXT;
@@ -179,7 +193,7 @@ std::string etf_list(PyObject* list){
   for( int ii={0}; ii < len; ii++ ){
 
     PyObject* temp = PyList_GetItem(list, ii);
-    buffer += etf_item(temp);
+    buffer += etf_pack_item(temp);
 
   }
 
@@ -188,7 +202,7 @@ std::string etf_list(PyObject* list){
 
 }
 
-std::string etf_dict(PyObject* dict){
+std::string etfp_dict(PyObject* dict){
 
   Py_ssize_t len = PyDict_Size(dict);
   std::string buffer = MAP_EXT;
@@ -203,8 +217,8 @@ std::string etf_dict(PyObject* dict){
 
   while( PyDict_Next(dict, &len, &k, &v) ){
 
-    buffer += etf_item(k);
-    buffer += etf_item(v);
+    buffer += etf_pack_item(k);
+    buffer += etf_pack_item(v);
 
   }
 
@@ -212,14 +226,14 @@ std::string etf_dict(PyObject* dict){
 
 }
 
-std::string etf_item(PyObject* temp){
+std::string etf_pack_item(PyObject* temp){
 
   std::string buffer;
 
   if( PyLong_Check(temp) ){
 
     unsigned long temp_int = PyLong_AsUnsignedLong(temp);
-    temp_int < 256 ? buffer += etf_small_int(temp_int) : buffer += etf_big_int(temp_int);
+    temp_int < 256 ? buffer += etfp_small_int(temp_int) : buffer += etfp_big_int(temp_int);
 
   } else if( PyUnicode_Check(temp) ) {
 
@@ -234,29 +248,29 @@ std::string etf_item(PyObject* temp){
 
     }else{
 
-      buffer += etf_string(temp);
+      buffer += etfp_string(temp);
 
     }
 
   }else if( PyFloat_Check(temp) ){
 
-    buffer += etf_float(PyFloat_AsDouble(temp));
+    buffer += etfp_float(PyFloat_AsDouble(temp));
 
   }else if( PyTuple_Check(temp) ){
 
-    buffer += etf_tuple(temp);
+    buffer += etfp_tuple(temp);
 
   }else if( PySet_Check(temp) ){
 
-    buffer += etf_set(temp);
+    buffer += etfp_set(temp);
 
   }else if( PyList_Check(temp) ){
 
-    buffer += etf_list(temp);
+    buffer += etfp_list(temp);
 
   }else if( PyDict_Check(temp) ){
 
-    buffer += etf_dict(temp);
+    buffer += etfp_dict(temp);
 
   }else{
 
@@ -276,7 +290,6 @@ std::string etf_item(PyObject* temp){
 static PyObject* earl_pack(PyObject* self, PyObject *args){
 
   std::string package;
-  std::vector<PyObject*> objects;
   Py_ssize_t len = PyTuple_Size(args);
 
   if( !len ){
@@ -315,7 +328,7 @@ static PyObject* earl_pack(PyObject* self, PyObject *args){
 
     }
 
-    package += etf_item(temp);
+    package += etf_pack_item(temp);
 
   }
 
@@ -329,11 +342,98 @@ static PyObject* earl_pack(PyObject* self, PyObject *args){
 
 }
 
+static PyObject* earl_unpack(PyObject* self, PyObject *args){
+    
+    Py_ssize_t len = PyTuple_Size(args);
+    
+    if ( len > 1 ){
+        
+        PyObject* return_value = PyList_New(len);
+    
+        for( int i={0}; i < len; i++){
+        
+            PyObject* temp = PyTuple_GetItem(args, i);
+        
+            if( PyBytes_Check(temp) ){
+            
+                if( PyList_SetItem(return_value, i, etfup_bytes(temp)) == -1 ){
+                    
+                    if( !PyErr_Occurred() ){
+                        
+                        PyErr_SetString(PyExc_RuntimeError, "Earl was unable to unpack data.");
+                        return NULL;
+                        
+                    }
+                    
+                }
+            
+            } else if( PyUnicode_Check(temp) ){
+            
+                if( PyList_SetItem(return_value, i, etfup_str(temp)) == -1 ){
+                    
+                    if( !PyErr_Occurred() ){
+                        
+                        PyErr_SetString(PyExc_RuntimeError, "Earl was unable to unpack data.");
+                        return NULL;
+                        
+                    }
+                    
+                }
+            
+            } else {
+            
+            
+                if( !PyErr_Occurred() ){
+                
+                    PyErr_SetString(PyExc_TypeError, "Earl can only unpack Str and Bytes objects.");
+                    return NULL;
+                
+                }
+            
+            }
+        
+        }
+        
+        return Py_BuildValue("O", return_value);
+    
+    } else {
+        
+        PyObject* return_value;
+        
+        if( PyBytes_Check(temp) ){
+            
+            return_value = etfup_bytes(PyTuple_GetItem(tuple, 0));
+            
+        } else if( PyUnicode_Check(temp) ){
+            
+            return_value = etfup_str(PyTuple_GetItem(tuple, 0));
+            
+        } else {
+            
+            if( !PyErr_Occurred() ){
+                
+                PyErr_SetString(PyExc_TypeError, "Earl can only unpack Str and Bytes objects.");
+                return NULL;
+                
+            }
+            
+        }
+        
+        return Py_BuildValue("O", return_value);
+        
+    }
+    
+    return NULL;
+    
+}
+
 static char earl_pack_docs[] = "pack(values): Pack a bunch of things into an External Term Format. Multiple items or types of items are packed into a list format.";
+static char earl_unpack_docs[] = "unpack(data): Unpack ETF data. Data is unpacked according to standards and supported types. If multiple items are given, return as a list.";
 
 static PyMethodDef earlmethods[] = {
 
   {"pack", earl_pack, METH_VARARGS, earl_pack_docs},
+  {"unpack", earl_unpack, METH_VARARGS, earl_unpack_docs},
   {NULL, NULL, 0, NULL}
 
 };
