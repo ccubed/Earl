@@ -9,6 +9,7 @@
  #include <Python.h>
  #include <string>
  #include <vector>
+ #include <stdio.h>
 
 // External Term Format Defines
 #define FLOAT_IEEE_EXT "F"
@@ -296,7 +297,6 @@ PyObject* etfup_bytes(PyObject* item){
     for( pos; pos < buffer.length()-1; pos++ ){
 
         if( buffer[ii] == INTEGER_EXT or buffer[ii] == SMALL_INTEGER_EXT ){
-<<<<<<< HEAD
             
           if( buffer[ii] == INTEGER_EXT ){
             
@@ -315,15 +315,25 @@ PyObject* etfup_bytes(PyObject* item){
             return PyLong_FromLong(upd);
             
           }
-            
-=======
 
-
-
->>>>>>> 8b8d3b34dff8753f1dc9dee39eb9e74fc0ddf131
         } else if( buffer[ii] == FLOAT_IEEE_EXT or buffer[ii] == FLOAT_EXT ){
 
-
+          double upd = 0.0;
+          if( buffer[ii] == FLOAT_IEEE_EXT ){
+            
+            for( int nb = {1}; nb < 9; nb++ ){
+              
+              upd = ( upd << 8 ) + buffer[ii+nb];
+              
+            }
+            return PyFloat_FromDouble(upd);
+            
+          } else {
+            
+            sscanf(buffer.substr(1,buffer.length()-1), "%lf", &upd);
+            return PyFloat_FromDouble(upd);
+            
+          }
 
         } else if( buffer[ii] == LIST_EXT ){
 
