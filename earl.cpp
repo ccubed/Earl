@@ -296,7 +296,23 @@ PyObject* etfup_bytes(PyObject* item){
         
         if( buffer[ii] == INTEGER_EXT or buffer[ii] == SMALL_INTEGER_EXT ){
             
+          if( buffer[ii] == INTEGER_EXT ){
             
+            long upd = 0;
+            for( int nb = {1}; nb < 5; nb++ ){
+              
+              upd = (upd << 8) + buffer[ii+nb];
+              
+            }
+            return PyLong_FromLong(upd);
+            
+          } else {
+            
+            long upd = 0;
+            upd = (upd << 8) + buffer[ii+1];
+            return PyLong_FromLong(upd);
+            
+          }
             
         } else if( buffer[ii] == FLOAT_IEEE_EXT or buffer[ii] == FLOAT_EXT ){
             
