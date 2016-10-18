@@ -292,6 +292,7 @@ std::string etf_pack_item(PyObject* temp){
 PyObject* etfup_bytes(PyObject* item){
 
     std::string buffer(PyBytes_AsString(item));
+    std::vector<PyObject*> objects;
     int pos = 0;
 
     for( pos; pos < buffer.length()-1; pos++ ){
@@ -300,72 +301,130 @@ PyObject* etfup_bytes(PyObject* item){
             
           if( buffer[ii] == INTEGER_EXT ){
             
-            long upd = 0;
-            for( int nb = {1}; nb < 5; nb++ ){
-              
-              upd = (upd << 8) + buffer[ii+nb];
-              
-            }
-            return PyLong_FromLong(upd);
+            objects.push_back(etfup_int(buffer, pos));
             
           } else {
             
-            long upd = 0;
-            upd = (upd << 8) + buffer[ii+1];
-            return PyLong_FromLong(upd);
+            objects.push_back(etfup_small_int(buffer, pos));
             
           }
 
         } else if( buffer[ii] == FLOAT_IEEE_EXT or buffer[ii] == FLOAT_EXT ){
 
-          double upd = 0.0;
           if( buffer[ii] == FLOAT_IEEE_EXT ){
             
-            for( int nb = {1}; nb < 9; nb++ ){
-              
-              upd = ( upd << 8 ) + buffer[ii+nb];
-              
-            }
-            return PyFloat_FromDouble(upd);
+            objects.push_back(etfup_float_new(buffer, pos));
             
           } else {
             
-            sscanf(buffer.substr(1,buffer.length()-1), "%lf", &upd);
-            return PyFloat_FromDouble(upd);
+            objects.push_back(etfup_float_old(buffer, pos));
             
           }
 
         } else if( buffer[ii] == LIST_EXT ){
 
-
+          objects.push_back(etfup_list(buffer, pos));
 
         } else if( buffer[ii] == MAP_EXT ){
 
-
+          objects.push_back(etfup_map(buffer, pos));
 
         } else if( buffer[ii] == STRING_EXT ){
 
-
+          objects.push_back(etfup_string(buffer, pos));
 
         } else if( buffer[ii] == SMALL_TUPLE_EXT or buffer[ii] = LARGE_TUPLE_EXT ){
 
-
+          objects.push_back(etfup_tuple(buffer, pos));
 
         }
 
     }
+    
+  if( objects.size() > 1 ){
+    
+    PyObject* tlist = PyList_New(objects.size());
+    
+    for( int ii={0}; ii < objects.size(); ii++ ){
+      
+      if( PyList_SetItem(tlist, ii, objects[ii]) != 0 ){
+        
+        if( !PyErr_Occurred() ){
+          
+          PyErr_SetString(PyExc_RuntimeError, "Earl encountered an error building the python objects.");
+          
+        }
+        return NULL;
+        
+      }
+      
+    }
+    
+    return tlist;
+    
+  } else {
+    
+    return objects[0];
+    
+  }
 
 }
 
-PyObject* etfup_str(PyObject* item);
-PyObject* etfup_small_int(int value);
-PyObject* etfup_big_int(unsigned long value);
-PyObject* etfup_string(std::string text);
-PyObject* etfup_float(double value);
-PyObject* etfup_tuple(std::vector tuple);
-PyObject* etfup_set(std::vector set);
-PyObject* etfup_list(std::vector list);
-PyObject* etfup_dict(std::string etfbytes);
+PyObject* etfup_small_int(std::string buffer, int &pos){
+  
+  pos += 1;
+  long upd = (upd >> 8) + buffer[pos];
+  return PyLong_FromLong(upd);
+  
+}
+
+PyObject* etfup_int(std::string buffer, int &pos){
+  
+  pos += 1;
+  long upd = 0;
+  
+  for( int nb={0}; nb < 4; nb++ ){
+    
+    upd = (upd >> 8) + buffer[pos+nb];
+    
+  }
+  
+  pos += 3;
+  
+  return PyLong_FromLong(upd);
+  
+}
+
+PyObject* etfup_string(std::string buffer, int &pos);
+
+PyObject* etfup_float_new(std::string buffer, int &pos){
+  
+  pos += 1;
+  double upd = 0.0;
+  
+  for( int nb = {0}; nb < 8; nb++ ){
+
+    upd = ( upd << 8 ) + buffer[pos+nb];
+
+  }
+  
+  return PyFloat_FromDouble(upd);
+  
+}
+
+PyObject* etfup_float_old(std::string buffer, int &pos){
+  
+  double upd = 0.0;
+  pos += 1;
+  sscanf(buffer.substr(pos,pos+30), "%lf", &upd);
+  return PyFloat_FromDouble(upd);
+  
+}
+
+PyObject* etfup_tuple(std::string buffer, int &pos);
+PyObject* etfup_set(std::string buffer, int &pos);
+PyObject* etfup_list(std::string buffer, int &pos);
+PyObject* etfup_map(std::string buffer, int &pos);
 
 
 static PyObject* earl_pack(PyObject* self, PyObject *args){
@@ -429,69 +488,23 @@ static PyObject* earl_unpack(PyObject* self, PyObject *args){
 
     if ( len > 1 ){
 
-        PyObject* return_value = PyList_New(len);
-
-        for( int i={0}; i < len; i++){
-
-            PyObject* temp = PyTuple_GetItem(args, i);
-
-            if( PyBytes_Check(temp) ){
-
-                if( PyList_SetItem(return_value, i, etfup_bytes(temp)) == -1 ){
-
-                    if( !PyErr_Occurred() ){
-
-                        PyErr_SetString(PyExc_RuntimeError, "Earl was unable to unpack data.");
-                        return NULL;
-
-                    }
-
-                }
-
-            } else if( PyUnicode_Check(temp) ){
-
-                if( PyList_SetItem(return_value, i, etfup_str(temp)) == -1 ){
-
-                    if( !PyErr_Occurred() ){
-
-                        PyErr_SetString(PyExc_RuntimeError, "Earl was unable to unpack data.");
-                        return NULL;
-
-                    }
-
-                }
-
-            } else {
-
-
-                if( !PyErr_Occurred() ){
-
-                    PyErr_SetString(PyExc_TypeError, "Earl can only unpack Str and Bytes objects.");
-                    return NULL;
-
-                }
-
-            }
-
-        }
-
-        return Py_BuildValue("O", return_value);
-
+      if( !PyErr_Occurred() ){
+        
+        PyErr_SetString(PyExc_RuntimeError, "Earl can only unpack one bytes object at a time.");
+        
+      }
+        
     } else {
 
         if( PyBytes_Check(temp) ){
 
             return Py_BuildValue("O", etfup_bytes(PyTuple_GetItem(tuple, 0)));
 
-        } else if( PyUnicode_Check(temp) ){
-
-            return Py_BuildValue("O", etfup_str(PyTuple_GetItem(tuple, 0)));
-
         } else {
 
             if( !PyErr_Occurred() ){
 
-                PyErr_SetString(PyExc_TypeError, "Earl can only unpack Str and Bytes objects.");
+                PyErr_SetString(PyExc_TypeError, "Earl can only unpack Bytes objects.");
                 return NULL;
 
             }
@@ -506,7 +519,7 @@ static PyObject* earl_unpack(PyObject* self, PyObject *args){
 
 
 static char earl_pack_docs[] = "pack(values): Pack a bunch of things into an External Term Format. Multiple items or types of items are packed into a list format.";
-static char earl_unpack_docs[] = "unpack(data): Unpack ETF data. Data is unpacked according to standards and supported types. If multiple items are given, return as a list.";
+static char earl_unpack_docs[] = "unpack(data): Unpack ETF data. Data is unpacked according to standards and supported types.";
 
 static PyMethodDef earlmethods[] = {
 
