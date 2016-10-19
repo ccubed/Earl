@@ -45,15 +45,13 @@ std::string etf_pack_item(PyObject* object);
 static PyObject* earl_pack(PyObject* self, PyObject* args);
 // Unpacking Functions
 PyObject* etfup_bytes(PyObject* item);
-PyObject* etfup_str(PyObject* item);
-PyObject* etfup_small_int(int value);
-PyObject* etfup_big_int(unsigned long value);
-PyObject* etfup_string(std::string text);
-PyObject* etfup_float(double value);
-PyObject* etfup_tuple(std::vector tuple);
-PyObject* etfup_set(std::vector set);
-PyObject* etfup_list(std::vector list);
-PyObject* etfup_dict(std::string etfbytes); // We have to parse this as the bytes by itself or we'll lose the depth.
+PyObject* etfup_small_int(std::string buffer, int &pos);
+PyObject* etfup_big_int(std::string buffer, int &pos);
+PyObject* etfup_float(std::string buffer, int &pos);
+PyObject* etfup_tuple(std::string buffer, int &pos);
+PyObject* etfup_set(std::string buffer, int &pos);
+PyObject* etfup_list(std::string buffer, int &pos);
+PyObject* etfup_dict(std::string buffer, int &pos); // We have to parse this as the bytes by itself or we'll lose the depth.
 static PyObject* earl_unpack(PyObject* self, PyObject* args);
 // End Function Prototypes
 
@@ -297,128 +295,131 @@ PyObject* etfup_bytes(PyObject* item){
 
     for( pos; pos < buffer.length()-1; pos++ ){
 
-        if( buffer[ii] == INTEGER_EXT or buffer[ii] == SMALL_INTEGER_EXT ){
-            
-          if( buffer[ii] == INTEGER_EXT ){
-            
+        if( buffer[pos] == INTEGER_EXT or buffer[pos] == SMALL_INTEGER_EXT ){
+
+          if( buffer[pos] == INTEGER_EXT ){
+
             objects.push_back(etfup_int(buffer, pos));
-            
+
           } else {
-            
+
             objects.push_back(etfup_small_int(buffer, pos));
-            
+
           }
 
-        } else if( buffer[ii] == FLOAT_IEEE_EXT or buffer[ii] == FLOAT_EXT ){
+        } else if( buffer[pos] == FLOAT_IEEE_EXT or buffer[pos] == FLOAT_EXT ){
 
-          if( buffer[ii] == FLOAT_IEEE_EXT ){
-            
+          if( buffer[pos] == FLOAT_IEEE_EXT ){
+
             objects.push_back(etfup_float_new(buffer, pos));
-            
+
           } else {
-            
+
             objects.push_back(etfup_float_old(buffer, pos));
-            
+
           }
 
-        } else if( buffer[ii] == LIST_EXT ){
+        } else if( buffer[pos] == LIST_EXT ){
 
           objects.push_back(etfup_list(buffer, pos));
 
-        } else if( buffer[ii] == MAP_EXT ){
+        } else if( buffer[pos] == MAP_EXT ){
 
           objects.push_back(etfup_map(buffer, pos));
 
-        } else if( buffer[ii] == STRING_EXT ){
+        } else if( buffer[pos] == STRING_EXT ){
 
-          objects.push_back(etfup_string(buffer, pos));
+          int length = 0;
+          length = (length >> 8) + buffer[pos+1];
+          length = (length >> 8) + buffer[pos+2];
+          pos += 3;
+          objects.push_back(PyUnicode_FromString(buffer.substr(pos, pos+(length-1)).c_str()));
+          pos += length;
 
-        } else if( buffer[ii] == SMALL_TUPLE_EXT or buffer[ii] = LARGE_TUPLE_EXT ){
+        } else if( buffer[pos] == SMALL_TUPLE_EXT or buffer[pos] = LARGE_TUPLE_EXT ){
 
           objects.push_back(etfup_tuple(buffer, pos));
 
         }
 
     }
-    
+
   if( objects.size() > 1 ){
-    
+
     PyObject* tlist = PyList_New(objects.size());
-    
+
     for( int ii={0}; ii < objects.size(); ii++ ){
-      
+
       if( PyList_SetItem(tlist, ii, objects[ii]) != 0 ){
-        
+
         if( !PyErr_Occurred() ){
-          
+
           PyErr_SetString(PyExc_RuntimeError, "Earl encountered an error building the python objects.");
-          
+
         }
         return NULL;
-        
+
       }
-      
+
     }
-    
+
     return tlist;
-    
+
   } else {
-    
+
     return objects[0];
-    
+
   }
 
 }
 
 PyObject* etfup_small_int(std::string buffer, int &pos){
-  
+
   pos += 1;
   long upd = (upd >> 8) + buffer[pos];
   return PyLong_FromLong(upd);
-  
+
 }
 
 PyObject* etfup_int(std::string buffer, int &pos){
-  
+
   pos += 1;
   long upd = 0;
-  
+
   for( int nb={0}; nb < 4; nb++ ){
-    
+
     upd = (upd >> 8) + buffer[pos+nb];
-    
+
   }
-  
+
   pos += 3;
-  
+
   return PyLong_FromLong(upd);
-  
+
 }
 
-PyObject* etfup_string(std::string buffer, int &pos);
-
 PyObject* etfup_float_new(std::string buffer, int &pos){
-  
+
   pos += 1;
   double upd = 0.0;
-  
+
   for( int nb = {0}; nb < 8; nb++ ){
 
     upd = ( upd << 8 ) + buffer[pos+nb];
 
   }
-  
+
   return PyFloat_FromDouble(upd);
-  
+
 }
 
 PyObject* etfup_float_old(std::string buffer, int &pos){
-  
+
   double upd = 0.0;
   pos += 1;
   sscanf(buffer.substr(pos,pos+30), "%lf", &upd);
   return PyFloat_FromDouble(upd);
-  
+
 }
 
 PyObject* etfup_tuple(std::string buffer, int &pos);
@@ -489,11 +490,11 @@ static PyObject* earl_unpack(PyObject* self, PyObject *args){
     if ( len > 1 ){
 
       if( !PyErr_Occurred() ){
-        
+
         PyErr_SetString(PyExc_RuntimeError, "Earl can only unpack one bytes object at a time.");
-        
+
       }
-        
+
     } else {
 
         if( PyBytes_Check(temp) ){
