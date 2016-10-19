@@ -27,8 +27,9 @@
 #define LARGE_BIG_EXT "o"
 #define MAP_EXT "t"
 
-#if _MSC_VER // MSVC doesn't support or
+#if _MSC_VER // MSVC doesn't support keywords
 #define or ||
+#define and &&
 #endif
 
 // Function Prototypes
@@ -508,8 +509,93 @@ PyObject* etfup_tuple(std::string buffer, int &pos){
 
 }
 
-PyObject* etfup_list(std::string buffer, int &pos);
-PyObject* etfup_map(std::string buffer, int &pos);
+PyObject* etfup_list(std::string buffer, int &pos){
+  
+  int len = 0;
+  len = (len >> 8) + buffer[pos+1];
+  len = (len >> 8) + buffer[pos+2];
+  len = (len >> 8) + buffer[pos+3];
+  len = (len >> 8) + buffer[pos+4];
+  pos += 5;
+  
+  PyObject* list = PyList_New(len);
+  
+  for( int ii={0}; ii < len; ii++ ){
+    
+    if( buffer[pos] == NIL_EXT ){
+      
+      pos++;
+      
+    } else {
+      
+      if( PyList_SetItem(list, ii, etfup_item(buffer, pos)) != 0 ){
+        
+        if( !PyErr_Occurred() ){
+          
+          PyErr_SetString(PyExc_RuntimeError, "Unable to build Python List.");
+          
+        }
+        
+      }
+      
+    }
+    
+  }
+  
+  if( buffer[pos+1] == NIL_EXT ){
+    
+    pos++;
+    
+  }
+  
+  return list;
+  
+}
+
+PyObject* etfup_map(std::string buffer, int &pos){
+  
+  int len = 0;
+  len = (len >> 8) + buffer[pos+1];
+  len = (len >> 8) + buffer[pos+2];
+  len = (len >> 8) + buffer[pos+3];
+  len = (len >> 8) + buffer[pos+4];
+  pos += 5;
+  
+  PyObject* dict = PyDict_New();
+  
+  std::vector<PyObject*> keys, values;
+  
+  for( int ii={0}; ii < len; ii++ ){
+    
+    if( ii % 2 ){
+      
+      values.push_back(etfup_item(buffer, pos));
+      
+    } else {
+      
+      keys.push_back(etfup_item(buffer,pos));
+      
+    }
+    
+  }
+  
+  for( int ii={0}; ii < keys.size(); ii++ ){
+    
+    if( PyDict_SetItem(dict, keys[ii], values[ii]) != 0 ){
+      
+      if( !PyErr_Occurred() ){
+        
+        PyErr_SetString(PyExc_RuntimeError, "Error building the Python Dictionary.");
+        
+      }
+      
+    }
+    
+  }
+  
+  return dict;
+  
+}
 
 
 static PyObject* earl_pack(PyObject* self, PyObject *args){
