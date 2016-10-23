@@ -5,27 +5,27 @@
  * Copyright 2016 Charles Click under the MIT License.
  */
 
- // Includes
- #include <Python.h>
- #include <string>
- #include <vector>
- #include <stdio.h>
+// Includes
+#include <Python.h>
+#include <string>
+#include <vector>
+#include <stdio.h>
 
 // External Term Format Defines
-#define FLOAT_IEEE_EXT "F"
-#define BIT_BINARY_EXT "M"
-#define SMALL_INTEGER_EXT "a"
-#define INTEGER_EXT "b"
-#define FLOAT_EXT "c"
-#define SMALL_TUPLE_EXT "h"
-#define LARGE_TUPLE_EXT "i"
-#define NIL_EXT "j"
-#define STRING_EXT "k"
-#define LIST_EXT "l"
-#define BINARY_EXT "m"
-#define SMALL_BIG_EXT "n"
-#define LARGE_BIG_EXT "o"
-#define MAP_EXT "t"
+const char FLOAT_IEEE_EXT = 'F';
+const char BIT_BINARY_EXT = 'M';
+const char SMALL_INTEGER_EXT = 'a';
+const char INTEGER_EXT = 'b';
+const char FLOAT_EXT = 'c';
+const char SMALL_TUPLE_EXT = 'h';
+const char LARGE_TUPLE_EXT = 'i';
+const char NIL_EXT = 'j';
+const char STRING_EXT = 'k';
+const char LIST_EXT = 'l';
+const char BINARY_EXT = 'm';
+const char SMALL_BIG_EXT = 'n';
+const char LARGE_BIG_EXT = 'o';
+const char MAP_EXT = 't';
 
 #if _MSC_VER // MSVC doesn't support keywords
 #define or ||
@@ -48,17 +48,18 @@ static PyObject* earl_pack(PyObject* self, PyObject* args);
 PyObject* etfup_bytes(PyObject* item);
 PyObject* etfup_item(std::string buffer, int &pos);
 PyObject* etfup_small_int(std::string buffer, int &pos);
-PyObject* etfup_big_int(std::string buffer, int &pos);
-PyObject* etfup_float(std::string buffer, int &pos);
+PyObject* etfup_int(std::string buffer, int &pos);
+PyObject* etfup_float_old(std::string buffer, int &pos);
+PyObject* etfup_float_new(std::string buffer, int &pos);
 PyObject* etfup_tuple(std::string buffer, int &pos);
 PyObject* etfup_list(std::string buffer, int &pos);
-PyObject* etfup_dict(std::string buffer, int &pos);
+PyObject* etfup_map(std::string buffer, int &pos);
 static PyObject* earl_unpack(PyObject* self, PyObject* args);
 // End Function Prototypes
 
 std::string etfp_small_int(int value){
 
-  std::string buffer = SMALL_INTEGER_EXT;
+  std::string buffer(1, SMALL_INTEGER_EXT);
   buffer += char(value);
   return buffer;
 
@@ -66,7 +67,7 @@ std::string etfp_small_int(int value){
 
 std::string etfp_big_int(unsigned long value){
 
-  std::string buffer = INTEGER_EXT;
+  std::string buffer(1, INTEGER_EXT);
   buffer += ((value >> 24) & 0xFF);
   buffer += ((value >> 16) & 0xFF);
   buffer += ((value >> 8) & 0xFF);
@@ -81,7 +82,7 @@ std::string etfp_string(PyObject *value){
   int len = PyUnicode_GET_LENGTH(value);
   int kind = PyUnicode_KIND(value);
 
-  std::string buffer = STRING_EXT;
+  std::string buffer(1, STRING_EXT);
   buffer += (len >> 8) & 0xFF;
   buffer += len & 0xFF;
   if (!len or !kind){
@@ -108,7 +109,7 @@ std::string etfp_string(PyObject *value){
 
 std::string etfp_float(double value){
 
-  std::string buffer = FLOAT_IEEE_EXT;
+  std::string buffer(1, FLOAT_IEEE_EXT);
 
   unsigned char const * p = reinterpret_cast<unsigned char const *>(&value);
 
@@ -131,7 +132,7 @@ std::string etfp_float(double value){
 std::string etfp_tuple(PyObject* tuple){
 
   Py_ssize_t len = PyTuple_Size(tuple);
-  std::string buffer = (len > 256 ? LARGE_TUPLE_EXT : SMALL_TUPLE_EXT);
+  std::string buffer(1, (len > 256 ? LARGE_TUPLE_EXT : SMALL_TUPLE_EXT) );
 
   if( len > 256 ){
 
@@ -161,7 +162,7 @@ std::string etfp_tuple(PyObject* tuple){
 std::string etfp_set(PyObject* set){
 
   Py_ssize_t len = PySet_Size(set);
-  std::string buffer = LIST_EXT;
+  std::string buffer(1, LIST_EXT);
 
   buffer += ((len >> 24) & 0xFF);
   buffer += ((len >> 16) & 0xFF);
@@ -183,7 +184,7 @@ std::string etfp_set(PyObject* set){
 std::string etfp_list(PyObject* list){
 
   Py_ssize_t len = PyList_Size(list);
-  std::string buffer = LIST_EXT;
+  std::string buffer(1, LIST_EXT);
 
   buffer += ((len >> 24) & 0xFF);
   buffer += ((len >> 16) & 0xFF);
@@ -205,7 +206,7 @@ std::string etfp_list(PyObject* list){
 std::string etfp_dict(PyObject* dict){
 
   Py_ssize_t len = PyDict_Size(dict);
-  std::string buffer = MAP_EXT;
+  std::string buffer(1, MAP_EXT);
 
   buffer += ((len >> 24) & 0xFF);
   buffer += ((len >> 16) & 0xFF);
@@ -337,7 +338,7 @@ PyObject* etfup_bytes(PyObject* item){
           objects.push_back(PyUnicode_FromString(buffer.substr(pos, pos+(length-1)).c_str()));
           pos += length;
 
-        } else if( buffer[pos] == SMALL_TUPLE_EXT or buffer[pos] = LARGE_TUPLE_EXT ){
+        } else if( buffer[pos] == SMALL_TUPLE_EXT or buffer[pos] == LARGE_TUPLE_EXT ){
 
           objects.push_back(etfup_tuple(buffer, pos));
 
@@ -414,7 +415,18 @@ PyObject* etfup_item(std::string buffer, int &pos){
 
     return etfup_tuple(buffer, pos);
 
+  } else {
+
+    if( !PyErr_Occurred() ){
+
+      PyErr_SetString(PyExc_RuntimeError, "Couldn't unpack the given types.");
+      return NULL;
+
+    }
+
   }
+
+  return NULL;
 
 }
 
@@ -446,13 +458,9 @@ PyObject* etfup_int(std::string buffer, int &pos){
 PyObject* etfup_float_new(std::string buffer, int &pos){
 
   pos += 1;
-  double upd = 0.0;
+  double upd;
 
-  for( int nb = {0}; nb < 8; nb++ ){
-
-    upd = ( upd << 8 ) + buffer[pos+nb];
-
-  }
+  memcpy(&upd, buffer.substr(pos, pos+7).c_str(), sizeof(upd));
 
   pos += 7;
 
@@ -464,7 +472,7 @@ PyObject* etfup_float_old(std::string buffer, int &pos){
 
   double upd = 0.0;
   pos += 1;
-  sscanf(buffer.substr(pos,pos+30), "%lf", &upd);
+  sscanf(buffer.substr(pos,pos+30).c_str(), "%lf", &upd);
   pos += 30;
   return PyFloat_FromDouble(upd);
 
@@ -510,91 +518,91 @@ PyObject* etfup_tuple(std::string buffer, int &pos){
 }
 
 PyObject* etfup_list(std::string buffer, int &pos){
-  
+
   int len = 0;
   len = (len >> 8) + buffer[pos+1];
   len = (len >> 8) + buffer[pos+2];
   len = (len >> 8) + buffer[pos+3];
   len = (len >> 8) + buffer[pos+4];
   pos += 5;
-  
+
   PyObject* list = PyList_New(len);
-  
+
   for( int ii={0}; ii < len; ii++ ){
-    
+
     if( buffer[pos] == NIL_EXT ){
-      
+
       pos++;
-      
+
     } else {
-      
+
       if( PyList_SetItem(list, ii, etfup_item(buffer, pos)) != 0 ){
-        
+
         if( !PyErr_Occurred() ){
-          
+
           PyErr_SetString(PyExc_RuntimeError, "Unable to build Python List.");
-          
+
         }
-        
+
       }
-      
+
     }
-    
+
   }
-  
+
   if( buffer[pos+1] == NIL_EXT ){
-    
+
     pos++;
-    
+
   }
-  
+
   return list;
-  
+
 }
 
 PyObject* etfup_map(std::string buffer, int &pos){
-  
+
   int len = 0;
   len = (len >> 8) + buffer[pos+1];
   len = (len >> 8) + buffer[pos+2];
   len = (len >> 8) + buffer[pos+3];
   len = (len >> 8) + buffer[pos+4];
   pos += 5;
-  
+
   PyObject* dict = PyDict_New();
-  
+
   std::vector<PyObject*> keys, values;
-  
+
   for( int ii={0}; ii < len; ii++ ){
-    
+
     if( ii % 2 ){
-      
+
       values.push_back(etfup_item(buffer, pos));
-      
+
     } else {
-      
+
       keys.push_back(etfup_item(buffer,pos));
-      
+
     }
-    
+
   }
-  
+
   for( int ii={0}; ii < keys.size(); ii++ ){
-    
+
     if( PyDict_SetItem(dict, keys[ii], values[ii]) != 0 ){
-      
+
       if( !PyErr_Occurred() ){
-        
+
         PyErr_SetString(PyExc_RuntimeError, "Error building the Python Dictionary.");
-        
+
       }
-      
+
     }
-    
+
   }
-  
+
   return dict;
-  
+
 }
 
 
@@ -667,9 +675,11 @@ static PyObject* earl_unpack(PyObject* self, PyObject *args){
 
     } else {
 
+        PyObject* temp = PyTuple_GetItem(args, 0);
+
         if( PyBytes_Check(temp) ){
 
-            return Py_BuildValue("O", etfup_bytes(PyTuple_GetItem(tuple, 0)));
+            return Py_BuildValue("O", etfup_bytes(temp));
 
         } else {
 
