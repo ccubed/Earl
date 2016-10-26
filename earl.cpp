@@ -32,6 +32,7 @@ const char MAP_EXT = 't';
 #define and &&
 #endif
 
+
 // Function Prototypes
 // Packing Functions
 std::string etfp_small_int(int value);
@@ -43,7 +44,6 @@ std::string etfp_set(PyObject* set);
 std::string etfp_list(PyObject* list);
 std::string etfp_dict(PyObject* dict);
 std::string etf_pack_item(PyObject* object);
-static PyObject* earl_pack(PyObject* self, PyObject* args);
 // Unpacking Functions
 PyObject* etfup_bytes(PyObject* item);
 PyObject* etfup_item(std::string buffer, int &pos);
@@ -54,7 +54,11 @@ PyObject* etfup_float_new(std::string buffer, int &pos);
 PyObject* etfup_tuple(std::string buffer, int &pos);
 PyObject* etfup_list(std::string buffer, int &pos);
 PyObject* etfup_map(std::string buffer, int &pos);
-static PyObject* earl_unpack(PyObject* self, PyObject* args);
+// Extern C Functions
+extern "C" {
+  static PyObject* earl_pack(PyObject* self, PyObject* args);
+  static PyObject* earl_unpack(PyObject* self, PyObject* args);
+}
 // End Function Prototypes
 
 std::string etfp_small_int(int value){
@@ -293,9 +297,9 @@ PyObject* etfup_bytes(PyObject* item){
 
     std::string buffer(PyBytes_AsString(item));
     std::vector<PyObject*> objects;
-    int pos = 0;
+    int pos = 1;
 
-    for( pos; pos < buffer.length()-1; pos++ ){
+    for( pos; pos < buffer.length(); pos++ ){
 
         if( buffer[pos] == INTEGER_EXT or buffer[pos] == SMALL_INTEGER_EXT ){
 
@@ -433,7 +437,14 @@ PyObject* etfup_item(std::string buffer, int &pos){
 PyObject* etfup_small_int(std::string buffer, int &pos){
 
   pos += 1;
-  long upd = (upd >> 8) + buffer[pos];
+  long upd = int(buffer[pos]);
+
+  if ( upd < 0 ){
+
+    upd = 127 + (128 - (upd*-1)) + 1;
+
+  }
+
   return PyLong_FromLong(upd);
 
 }
@@ -605,7 +616,6 @@ PyObject* etfup_map(std::string buffer, int &pos){
 
 }
 
-
 static PyObject* earl_pack(PyObject* self, PyObject *args){
 
   std::string package;
@@ -697,7 +707,6 @@ static PyObject* earl_unpack(PyObject* self, PyObject *args){
     return NULL;
 
 }
-
 
 static char earl_pack_docs[] = "pack(values): Pack a bunch of things into an External Term Format. Multiple items or types of items are packed into a list format.";
 static char earl_unpack_docs[] = "unpack(data): Unpack ETF data. Data is unpacked according to standards and supported types.";
