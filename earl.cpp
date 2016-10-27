@@ -61,7 +61,7 @@ extern "C" {
 }
 // End Function Prototypes
 
-std::string etfp_small_int(int value){
+std::string etfp_small_int(long value){
 
   std::string buffer(1, SMALL_INTEGER_EXT);
   buffer += char(value);
@@ -69,13 +69,15 @@ std::string etfp_small_int(int value){
 
 }
 
-std::string etfp_big_int(unsigned long value){
+std::string etfp_big_int(long value){
+
+  int temp = int(value);
 
   std::string buffer(1, INTEGER_EXT);
-  buffer += ((value >> 24) & 0xFF);
-  buffer += ((value >> 16) & 0xFF);
-  buffer += ((value >> 8) & 0xFF);
-  buffer += (value & 0xFF);
+  buffer += ((temp >> 24) & 0xFF);
+  buffer += ((temp >> 16) & 0xFF);
+  buffer += ((temp >> 8) & 0xFF);
+  buffer += (temp & 0xFF);
 
   return buffer;
 
@@ -237,8 +239,26 @@ std::string etf_pack_item(PyObject* temp){
 
   if( PyLong_Check(temp) ){
 
-    unsigned long temp_int = PyLong_AsUnsignedLong(temp);
-    temp_int < 256 ? buffer += etfp_small_int(temp_int) : buffer += etfp_big_int(temp_int);
+    long temp_int = PyLong_AsLong(temp);
+
+    if ( temp_int > 0 and temp_int < 255 ){
+
+      buffer += etfp_small_int(temp_int);
+
+    } else if( temp_int > -2147483647 and temp_int < 2147483647 ){
+
+      buffer += etfp_big_int(temp_int);
+
+    } else {
+
+      if( !PyErr_Occurred() ){
+
+        PyErr_SetString(PyExc_RuntimeError, "Number too large to pack.");
+        return NULL;
+
+      }
+
+    }
 
   } else if( PyUnicode_Check(temp) ) {
 
@@ -452,7 +472,7 @@ PyObject* etfup_small_int(std::string buffer, int &pos){
 PyObject* etfup_int(std::string buffer, int &pos){
 
   pos += 1;
-  long upd = 0;
+  int upd = 0;
 
   for( int nb={0}; nb < 4; nb++ ){
 
@@ -462,7 +482,7 @@ PyObject* etfup_int(std::string buffer, int &pos){
 
   pos += 3;
 
-  return PyLong_FromLong(upd);
+  return PyLong_FromLong(long(upd));
 
 }
 
