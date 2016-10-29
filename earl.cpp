@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <stdio.h>
+#include <fstream> // YOLO debugging
 
 // External Term Format Defines
 const char FLOAT_IEEE_EXT = 'F';
@@ -481,6 +482,11 @@ PyObject* etfup_int(std::string buffer, int &pos){
   }
 
   pos += 3;
+  
+  ofstream yolo;
+  yolo.open("/home/hestia/yolo_int");
+  yolo << upd;
+  yolo.close();
 
   return PyLong_FromLong(long(upd));
 
