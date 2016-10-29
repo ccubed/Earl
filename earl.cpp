@@ -36,8 +36,8 @@ const char MAP_EXT = 't';
 
 // Function Prototypes
 // Packing Functions
-std::string etfp_small_int(int value);
-std::string etfp_big_int(unsigned long value);
+std::string etfp_small_int(long value);
+std::string etfp_big_int(long value);
 std::string etfp_string(PyObject* value);
 std::string etfp_float(double value);
 std::string etfp_tuple(PyObject* tuple);
@@ -73,8 +73,8 @@ std::string etfp_small_int(long value){
 std::string etfp_big_int(long value){
 
   int temp = int(value);
-
   std::string buffer(1, INTEGER_EXT);
+  
   buffer += ((temp >> 24) & 0xFF);
   buffer += ((temp >> 16) & 0xFF);
   buffer += ((temp >> 8) & 0xFF);
@@ -242,11 +242,11 @@ std::string etf_pack_item(PyObject* temp){
 
     long temp_int = PyLong_AsLong(temp);
 
-    if ( temp_int > 0 and temp_int < 255 ){
+    if ( temp_int >= 0 and temp_int < 256 ){
 
       buffer += etfp_small_int(temp_int);
 
-    } else if( temp_int > -2147483647 and temp_int < 2147483647 ){
+    } else if( temp_int >= -2147483647 and temp_int <= 2147483647 ){
 
       buffer += etfp_big_int(temp_int);
 
@@ -375,7 +375,7 @@ PyObject* etfup_bytes(PyObject* item){
 
     PyObject* tlist = PyList_New(objects.size());
 
-    for( int ii={0}; ii < objects.size(); ii++ ){
+    for( unsigned ii={0}; ii < objects.size(); ii++ ){
 
       if( PyList_SetItem(tlist, ii, objects[ii]) != 0 ){
 
@@ -475,9 +475,9 @@ PyObject* etfup_int(std::string buffer, int &pos){
   pos += 1;
   int upd = 0;
 
-  for( int nb={0}; nb < 4; nb++ ){
+  for( unsigned nb={0}; nb < 4; nb++ ){
 
-    upd = (upd >> 8) + buffer[pos+nb];
+    upd = (upd << 8) + static_cast<unsigned char>(buffer[pos+nb]);
 
   }
 
@@ -624,7 +624,7 @@ PyObject* etfup_map(std::string buffer, int &pos){
 
   }
 
-  for( int ii={0}; ii < keys.size(); ii++ ){
+  for( unsigned ii={0}; ii < keys.size(); ii++ ){
 
     if( PyDict_SetItem(dict, keys[ii], values[ii]) != 0 ){
 
