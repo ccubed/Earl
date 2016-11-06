@@ -10,7 +10,6 @@
 #include <string>
 #include <vector>
 #include <stdio.h>
-#include <fstream> // YOLO debugging
 
 // External Term Format Defines
 const char FLOAT_IEEE_EXT = 'F';
@@ -47,14 +46,14 @@ std::string etfp_dict(PyObject* dict);
 std::string etf_pack_item(PyObject* object);
 // Unpacking Functions
 PyObject* etfup_bytes(PyObject* item);
-PyObject* etfup_item(std::string buffer, int &pos);
-PyObject* etfup_small_int(std::string buffer, int &pos);
-PyObject* etfup_int(std::string buffer, int &pos);
-PyObject* etfup_float_old(std::string buffer, int &pos);
-PyObject* etfup_float_new(std::string buffer, int &pos);
-PyObject* etfup_tuple(std::string buffer, int &pos);
-PyObject* etfup_list(std::string buffer, int &pos);
-PyObject* etfup_map(std::string buffer, int &pos);
+PyObject* etfup_item(char *buffer, int &pos);
+PyObject* etfup_small_int(char *buffer, int &pos);
+PyObject* etfup_int(char *buffer, int &pos);
+PyObject* etfup_float_old(char *buffer, int &pos);
+PyObject* etfup_float_new(char *buffer, int &pos);
+PyObject* etfup_tuple(char *buffer, int &pos);
+PyObject* etfup_list(char *buffer, int &pos);
+PyObject* etfup_map(char *buffer, int &pos);
 // Extern C Functions
 extern "C" {
   static PyObject* earl_pack(PyObject* self, PyObject* args);
@@ -316,11 +315,12 @@ std::string etf_pack_item(PyObject* temp){
 
 PyObject* etfup_bytes(PyObject* item){
 
-    std::string buffer(PyBytes_AsString(item));
+    char *buffer = PyBytes_AsString(item);
     std::vector<PyObject*> objects;
-    int pos = 1;
+    int pos = 0;
 
-    for( pos; pos < buffer.length(); pos++ ){
+    
+    for( pos; pos < sizeof(buffer)-1; pos++ ){
 
         if( buffer[pos] == INTEGER_EXT or buffer[pos] == SMALL_INTEGER_EXT ){
 
@@ -357,11 +357,23 @@ PyObject* etfup_bytes(PyObject* item){
         } else if( buffer[pos] == STRING_EXT ){
 
           int length = 0;
-          length = (length >> 8) + buffer[pos+1];
-          length = (length >> 8) + buffer[pos+2];
+          length = (length << 8) + buffer[pos+1];
+          length = (length << 8) + buffer[pos+2];
           pos += 3;
-          objects.push_back(PyUnicode_FromString(buffer.substr(pos, pos+(length-1)).c_str()));
-          pos += length;
+
+          char strbuf[length+1];
+
+          for( unsigned nb = 0; nb < length; nb++ ){
+
+            strbuf[nb] = buffer[pos+nb];
+
+          }
+
+          strbuf[length+1] = '\0';
+
+          PyObject* held_return = PyUnicode_FromString(strbuf);
+          pos += length+1;
+          return held_return;
 
         } else if( buffer[pos] == SMALL_TUPLE_EXT or buffer[pos] == LARGE_TUPLE_EXT ){
 
@@ -400,7 +412,7 @@ PyObject* etfup_bytes(PyObject* item){
 
 }
 
-PyObject* etfup_item(std::string buffer, int &pos){
+PyObject* etfup_item(char *buffer, int &pos){
 
   if( buffer[pos] == SMALL_INTEGER_EXT ){
 
@@ -429,11 +441,22 @@ PyObject* etfup_item(std::string buffer, int &pos){
   } else if( buffer[pos] == STRING_EXT ){
 
     int length = 0;
-    length = (length >> 8) + buffer[pos+1];
-    length = (length >> 8) + buffer[pos+2];
+    length = (length << 8) + buffer[pos+1];
+    length = (length << 8) + buffer[pos+2];
     pos += 3;
-    PyObject* held_return = PyUnicode_FromString(buffer.substr(pos, pos+(length-1)).c_str());
-    pos += length;
+
+    char strbuf[length+1];
+
+    for( unsigned nb = 0; nb < length; nb++ ){
+
+      strbuf[nb] = buffer[pos+nb];
+
+    }
+
+    strbuf[length+1] = '\0';
+
+    PyObject* held_return = PyUnicode_FromString(strbuf);
+    pos += length+1;
     return held_return;
 
   } else if( buffer[pos] == SMALL_TUPLE_EXT or buffer[pos] == LARGE_TUPLE_EXT ){
@@ -455,9 +478,9 @@ PyObject* etfup_item(std::string buffer, int &pos){
 
 }
 
-PyObject* etfup_small_int(std::string buffer, int &pos){
+PyObject* etfup_small_int(char *buffer, int &pos){
 
-  pos += 1;
+  pos++;
   long upd = int(buffer[pos]);
 
   if ( upd < 0 ){
@@ -466,71 +489,84 @@ PyObject* etfup_small_int(std::string buffer, int &pos){
 
   }
 
+  pos++;
+
   return PyLong_FromLong(upd);
 
 }
 
-PyObject* etfup_int(std::string buffer, int &pos){
+PyObject* etfup_int(char *buffer, int &pos){
 
   pos += 1;
   int upd = 0;
 
-  for( int nb={0}; nb < 4; nb++ ){
+  for( unsigned nb = 0; nb < sizeof(upd); nb++ ){
 
-    upd = (upd >> 8) + static_cast<unsigned char>(buffer[pos+nb]);
+    upd = (upd << 8) + buffer[pos+nb];
 
   }
 
-  pos += 3;
-  
-  std::ofstream yolo;
-  yolo.open("/home/hestia/yolo_int");
-  yolo << upd;
-  yolo.close();
+  pos += 4;
 
   return PyLong_FromLong(long(upd));
 
 }
 
-PyObject* etfup_float_new(std::string buffer, int &pos){
+PyObject* etfup_float_new(char *buffer, int &pos){
 
   pos += 1;
   double upd;
 
-  memcpy(&upd, buffer.substr(pos, pos+7).c_str(), sizeof(upd));
+  char dblbuf[8];
 
-  pos += 7;
+  for( unsigned nb = 0; nb < sizeof(upd); nb++ ){
+
+    dblbuf[nb] = buffer[pos+nb];
+
+  }
+
+  memcpy(&upd, dblbuf, sizeof(dblbuf));
+
+  pos += 8;
 
   return PyFloat_FromDouble(upd);
 
 }
 
-PyObject* etfup_float_old(std::string buffer, int &pos){
+PyObject* etfup_float_old(char *buffer, int &pos){
 
   double upd = 0.0;
   pos += 1;
-  sscanf(buffer.substr(pos,pos+30).c_str(), "%lf", &upd);
-  pos += 30;
+  char substr[31];
+
+  for( unsigned nb = 0; nb < 31; nb ++){
+
+    substr[nb] = buffer[pos+nb];
+
+  }
+
+  sscanf(substr, "%lf", &upd);
+  pos += 31;
   return PyFloat_FromDouble(upd);
 
 }
 
-PyObject* etfup_tuple(std::string buffer, int &pos){
+PyObject* etfup_tuple(char *buffer, int &pos){
 
   int len = 0;
   if( buffer[pos] == SMALL_TUPLE_EXT ){
 
-    len = (len >> 8) + buffer[pos+1];
-    pos++;
+    len = (len << 8) + buffer[pos+1];
+    pos += 2;
 
   } else {
 
     for( int ii={1}; ii < 5; ii++){
 
-      len = (len >> 8) + buffer[pos+ii];
+      len = (len << 8) + buffer[pos+ii];
 
     }
-    pos += 4;
+    pos += 5;
 
   }
 
@@ -554,13 +590,13 @@ PyObject* etfup_tuple(std::string buffer, int &pos){
 
 }
 
-PyObject* etfup_list(std::string buffer, int &pos){
+PyObject* etfup_list(char *buffer, int &pos){
 
   int len = 0;
-  len = (len >> 8) + buffer[pos+1];
-  len = (len >> 8) + buffer[pos+2];
-  len = (len >> 8) + buffer[pos+3];
-  len = (len >> 8) + buffer[pos+4];
+  len = (len << 8) + buffer[pos+1];
+  len = (len << 8) + buffer[pos+2];
+  len = (len << 8) + buffer[pos+3];
+  len = (len << 8) + buffer[pos+4];
   pos += 5;
 
   PyObject* list = PyList_New(len);
@@ -589,7 +625,7 @@ PyObject* etfup_list(std::string buffer, int &pos){
 
   if( buffer[pos+1] == NIL_EXT ){
 
-    pos++;
+    pos += 2;
 
   }
 
@@ -597,13 +633,13 @@ PyObject* etfup_list(std::string buffer, int &pos){
 
 }
 
-PyObject* etfup_map(std::string buffer, int &pos){
+PyObject* etfup_map(char *buffer, int &pos){
 
   int len = 0;
-  len = (len >> 8) + buffer[pos+1];
-  len = (len >> 8) + buffer[pos+2];
-  len = (len >> 8) + buffer[pos+3];
-  len = (len >> 8) + buffer[pos+4];
+  len = (len << 8) + buffer[pos+1];
+  len = (len << 8) + buffer[pos+2];
+  len = (len << 8) + buffer[pos+3];
+  len = (len << 8) + buffer[pos+4];
   pos += 5;
 
   PyObject* dict = PyDict_New();
