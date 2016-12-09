@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <stdio.h>
+#include <algorithm>
 
 // External Term Format Defines
 const char FLOAT_IEEE_EXT = 'F';
@@ -116,19 +117,14 @@ std::string etfp_string(PyObject *value){
 std::string etfp_float(double value){
 
   std::string buffer(1, FLOAT_IEEE_EXT);
-
-  unsigned char const * p = reinterpret_cast<unsigned char const *>(&value);
-
-  if ( sizeof(p) < 8 ){
-
-    return NULL;
-
-  }
-
-  for ( int ii={0}; ii < 8; ii++ ){
-
-      buffer += (int(p[7-ii]) & 0xFF);
-
+  
+  char& raw = reinterpret_cast<char&>(value);
+  std::reverse(&raw, &raw + sizeof(double));
+  
+  for (int i={0}; i < sizeof(raw); i++){
+    
+    buffer.append(raw[i], 1);
+    
   }
 
   return buffer;
@@ -359,7 +355,7 @@ PyObject* etfup_bytes(PyObject* item){
           int length = 0;
           length = (length << 8) + buffer[pos+1];
           length = (length << 8) + buffer[pos+2];
-          pos += 3;
+          pos += 2;
 
           char strbuf[length+1];
 
@@ -443,7 +439,7 @@ PyObject* etfup_item(char *buffer, int &pos){
     int length = 0;
     length = (length << 8) + buffer[pos+1];
     length = (length << 8) + buffer[pos+2];
-    pos += 3;
+    pos += 2;
 
     char strbuf[length+1];
 
@@ -517,15 +513,7 @@ PyObject* etfup_float_new(char *buffer, int &pos){
   pos += 1;
   double upd;
 
-  char dblbuf[8];
-
-  for( unsigned nb = 0; nb < sizeof(upd); nb++ ){
-
-    dblbuf[nb] = buffer[pos+nb];
-
-  }
-
-  memcpy(&upd, dblbuf, sizeof(dblbuf));
+  memcpy(&upd, &pos, sizeof(double));
 
   pos += 8;
 
