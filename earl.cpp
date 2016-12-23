@@ -313,71 +313,71 @@ std::string etf_pack_item(PyObject* temp){
 }
 
 
-PyObject* etfup_bytes(PyObject* item){
+PyObject* etfup_bytes(PyObject* item, Py_ssize_t len){
 
-    char *buffer = PyBytes_AsString(item);
+    char **buffer;
+    PyBytes_AsStringAndSize(item, buffer, &len);
     std::vector<PyObject*> objects;
     int pos = 0;
 
-    
     for( pos; pos < sizeof(buffer)-1; pos++ ){
 
-        if( buffer[pos] == INTEGER_EXT or buffer[pos] == SMALL_INTEGER_EXT ){
+        if( *buffer[pos] == INTEGER_EXT or *buffer[pos] == SMALL_INTEGER_EXT ){
 
-          if( buffer[pos] == INTEGER_EXT ){
+          if( *buffer[pos] == INTEGER_EXT ){
 
-            objects.push_back(etfup_int(buffer, pos));
-
-          } else {
-
-            objects.push_back(etfup_small_int(buffer, pos));
-
-          }
-
-        } else if( buffer[pos] == FLOAT_IEEE_EXT or buffer[pos] == FLOAT_EXT ){
-
-          if( buffer[pos] == FLOAT_IEEE_EXT ){
-
-            objects.push_back(etfup_float_new(buffer, pos));
+            objects.push_back(etfup_int(*buffer, pos));
 
           } else {
 
-            objects.push_back(etfup_float_old(buffer, pos));
+            objects.push_back(etfup_small_int(*buffer, pos));
 
           }
 
-        } else if( buffer[pos] == LIST_EXT ){
+        } else if( *buffer[pos] == FLOAT_IEEE_EXT or *buffer[pos] == FLOAT_EXT ){
 
-          objects.push_back(etfup_list(buffer, pos));
+          if( *buffer[pos] == FLOAT_IEEE_EXT ){
 
-        } else if( buffer[pos] == MAP_EXT ){
+            objects.push_back(etfup_float_new(*buffer, pos));
 
-          objects.push_back(etfup_map(buffer, pos));
+          } else {
 
-        } else if( buffer[pos] == STRING_EXT ){
+            objects.push_back(etfup_float_old(*buffer, pos));
+
+          }
+
+        } else if( *buffer[pos] == LIST_EXT ){
+
+          objects.push_back(etfup_list(*buffer, pos));
+
+        } else if( *buffer[pos] == MAP_EXT ){
+
+          objects.push_back(etfup_map(*buffer, pos));
+
+        } else if( *buffer[pos] == STRING_EXT ){
 
           int length = 0;
-          length = (length << 8) + buffer[pos+1];
-          length = (length << 8) + buffer[pos+2];
+          length = (length << 8) + *buffer[pos+1];
+          length = (length << 8) + *buffer[pos+2];
           pos += 3;
 
           char strbuf[length+1];
 
           for( unsigned nb = 0; nb < length; nb++ ){
 
-            strbuf[nb] = buffer[pos+nb];
+            strbuf[nb] = *buffer[pos+nb];
 
           }
 
-          strbuf[length+1] = '\0';
+          strbuf[length] = '\0';
 
           PyObject* held_return = PyUnicode_FromString(strbuf);
           pos += length+1;
           return held_return;
 
-        } else if( buffer[pos] == SMALL_TUPLE_EXT or buffer[pos] == LARGE_TUPLE_EXT ){
+        } else if( *buffer[pos] == SMALL_TUPLE_EXT or *buffer[pos] == LARGE_TUPLE_EXT ){
 
-          objects.push_back(etfup_tuple(buffer, pos));
+          objects.push_back(etfup_tuple(*buffer, pos));
 
         }
 
@@ -453,7 +453,7 @@ PyObject* etfup_item(char *buffer, int &pos){
 
     }
 
-    strbuf[length+1] = '\0';
+    strbuf[length] = '\0';
 
     PyObject* held_return = PyUnicode_FromString(strbuf);
     pos += length+1;
@@ -506,7 +506,7 @@ PyObject* etfup_int(char *buffer, int &pos){
 
   }
 
-  pos += 4;
+  pos += 4;  
 
   return PyLong_FromLong(long(upd));
 
@@ -751,7 +751,7 @@ static PyObject* earl_unpack(PyObject* self, PyObject *args){
 
         if( PyBytes_Check(temp) ){
 
-            return Py_BuildValue("O", etfup_bytes(temp));
+            return Py_BuildValue("O", etfup_bytes(temp, PyBytes_Size(temp)));
 
         } else {
 
