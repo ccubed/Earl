@@ -312,9 +312,9 @@ std::string etf_pack_item(PyObject* temp){
 PyObject* etfup_bytes(PyObject* item, Py_ssize_t len){
 
     char *buffer;
-    Py_ssize_t real_len = len+1;
+    Py_ssize_t pbl;
     
-    if( PyBytes_AsStringAndSize(item, &buffer, &real_len) == -1 ){
+    if( PyBytes_AsStringAndSize(item, &buffer, &pbl) == -1 ){
 
       PyErr_SetString(PyExc_RuntimeError, "Unable to convert the bytes object to a char array.");
       return NULL;
@@ -324,7 +324,7 @@ PyObject* etfup_bytes(PyObject* item, Py_ssize_t len){
     std::vector<PyObject*> objects;
     int pos = 0;
 
-    for( pos; pos < real_len; pos++ ){
+    for( pos; pos < len; pos++ ){
 
         if( buffer[pos] == INTEGER_EXT or buffer[pos] == SMALL_INTEGER_EXT ){
 
