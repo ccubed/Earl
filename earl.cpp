@@ -505,8 +505,8 @@ PyObject* etfup_int(char *buffer, int &pos){
   int upd = 0;
 
   for( unsigned nb = 0; nb < sizeof(upd); nb++ ){
-
-    upd = (upd << 8) + buffer[pos+nb];
+    
+    upd = (upd << 8) + static_cast<unsigned char>(buffer[pos+nb]);
 
   }
 
