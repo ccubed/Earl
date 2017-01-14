@@ -363,19 +363,21 @@ PyObject* etfup_bytes(PyObject* item, Py_ssize_t len){
           int length = 0;
           length = (length << 8) + buffer[pos+1];
           length = (length << 8) + buffer[pos+2];
-          pos += 2;
+          pos += 3;
 
-          char strbuf[length+1];
+          std::string strbuf;
 
           for( unsigned nb = 0; nb < length; nb++ ){
 
-            strbuf[nb] = buffer[pos+nb];
+            strbuf.append(1, buffer[pos+nb]);
 
           }
 
-          strbuf[length] = '\0';
+          strbuf.append(1, '\0');
 
-          PyObject* held_return = PyUnicode_FromString(strbuf);
+
+
+          PyObject* held_return = PyUnicode_FromString(strbuf.c_str());
           pos += length+1;
           return held_return;
 
@@ -447,19 +449,17 @@ PyObject* etfup_item(char *buffer, int &pos){
     int length = 0;
     length = (length << 8) + buffer[pos+1];
     length = (length << 8) + buffer[pos+2];
-    pos += 2;
+    pos += 3;
 
-    char strbuf[length+1];
+    std::string strbuf;
 
     for( unsigned nb = 0; nb < length; nb++ ){
 
-      strbuf[nb] = buffer[pos+nb];
+      strbuf.append(1, buffer[pos+nb]);
 
     }
 
-    strbuf[length] = '\0';
-
-    PyObject* held_return = PyUnicode_FromString(strbuf);
+    PyObject* held_return = PyUnicode_FromString(strbuf.c_str());
     pos += length+1;
     return held_return;
 
@@ -642,7 +642,7 @@ PyObject* etfup_map(char *buffer, int &pos){
 
   std::vector<PyObject*> keys, values;
 
-  for( int ii={0}; ii < len; ii++ ){
+  for( int ii={0}; ii < (len*2); ii++ ){
 
     if( ii % 2 ){
 
@@ -656,6 +656,17 @@ PyObject* etfup_map(char *buffer, int &pos){
 
   }
 
+  if (keys.size() != values.size()){
+
+    if( !PyErr_Occurred() ){
+
+      PyErr_SetString(PyExc_RuntimeError, "Dictionary has an uneven amount of keys and values.");
+      return NULL;
+
+    }
+
+  }
+
   for( int ii={0}; ii < keys.size(); ii++ ){
 
     if( PyDict_SetItem(dict, keys[ii], values[ii]) != 0 ){
@@ -663,6 +674,7 @@ PyObject* etfup_map(char *buffer, int &pos){
       if( !PyErr_Occurred() ){
 
         PyErr_SetString(PyExc_RuntimeError, "Error building the Python Dictionary.");
+        return NULL;
 
       }
 
