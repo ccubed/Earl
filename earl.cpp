@@ -104,7 +104,7 @@ std::string etfp_string(PyObject *value){
 
   }
 
-  for( int i={0}; i < len; i++){
+  for( int i={0}; i < len; i++ ){
 
       buffer += char(PyUnicode_READ(kind, PyUnicode_DATA(value), i));
 
@@ -117,14 +117,14 @@ std::string etfp_string(PyObject *value){
 std::string etfp_float(double value){
 
   std::string buffer(1, FLOAT_IEEE_EXT);
-  
+
   char *raw = (char*)(&value);
   std::reverse(&raw, &raw + sizeof(double));
-  
+
   for (int i={0}; i < sizeof(raw); i++){
-    
+
     buffer.append(raw[i], 1);
-    
+
   }
 
   return buffer;
@@ -134,7 +134,7 @@ std::string etfp_float(double value){
 std::string etfp_tuple(PyObject* tuple){
 
   Py_ssize_t len = PyTuple_Size(tuple);
-  std::string buffer(1, (len > 256 ? LARGE_TUPLE_EXT : SMALL_TUPLE_EXT) );
+  std::string buffer(1, (len > 256 ? LARGE_TUPLE_EXT : SMALL_TUPLE_EXT));
 
   if( len > 256 ){
 
@@ -313,7 +313,7 @@ PyObject* etfup_bytes(PyObject* item, Py_ssize_t len){
 
     char *buffer;
     Py_ssize_t pbl;
-    
+
     if( PyBytes_AsStringAndSize(item, &buffer, &pbl) == -1 ){
 
       PyErr_SetString(PyExc_RuntimeError, "Unable to convert the bytes object to a char array.");
@@ -505,12 +505,12 @@ PyObject* etfup_int(char *buffer, int &pos){
   int upd = 0;
 
   for( unsigned nb = 0; nb < sizeof(upd); nb++ ){
-    
+
     upd = (upd << 8) + static_cast<unsigned char>(buffer[pos+nb]);
 
   }
 
-  pos += 4;  
+  pos += 4;
 
   return PyLong_FromLong(long(upd));
 
