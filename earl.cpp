@@ -89,10 +89,7 @@ std::string etfp_string(PyObject *value){
   int len = PyUnicode_GET_LENGTH(value);
   int kind = PyUnicode_KIND(value);
 
-  std::string buffer(1, STRING_EXT);
-  buffer += (len >> 8) & 0xFF;
-  buffer += len & 0xFF;
-  if (!len or !kind){
+  if (!kind){
 
       if ( !PyErr_Occurred() ){
 
@@ -100,17 +97,29 @@ std::string etfp_string(PyObject *value){
 
       }
 
-      return NULL;
+  } else {
+
+    std::string buffer(1, STRING_EXT);
+    buffer += (len >> 8) & 0xFF;
+    buffer += len & 0xFF;
+
+    if( len > 0 ){
+
+      for( int i={0}; i < len; i++ ){
+
+          buffer += char(PyUnicode_READ(kind, PyUnicode_DATA(value), i));
+
+      }
+
+    } else {
+
+      buffer += '\0';
+
+    }
+
+    return buffer;
 
   }
-
-  for( int i={0}; i < len; i++ ){
-
-      buffer += char(PyUnicode_READ(kind, PyUnicode_DATA(value), i));
-
-  }
-
-  return buffer;
 
 }
 
@@ -157,7 +166,15 @@ std::string etfp_tuple(PyObject* tuple){
 
   }
 
-  return buffer;
+  if( !PyErr_Occurred() ){
+
+    return buffer;
+
+  } else {
+
+    return NULL;
+
+  }
 
 }
 
@@ -178,8 +195,16 @@ std::string etfp_set(PyObject* set){
 
   }
 
-  buffer += NIL_EXT;
-  return buffer;
+  if( !PyErr_Occurred() ){
+
+    buffer += NIL_EXT;
+    return buffer;
+
+  } else {
+
+    return NULL;
+
+  }
 
 }
 
@@ -200,8 +225,16 @@ std::string etfp_list(PyObject* list){
 
   }
 
-  buffer += NIL_EXT;
-  return buffer;
+  if( !PyErr_Occurred() ){
+
+    buffer += NIL_EXT;
+    return buffer;
+
+  } else {
+
+    return NULL;
+
+  }
 
 }
 
@@ -225,7 +258,15 @@ std::string etfp_dict(PyObject* dict){
 
   }
 
-  return buffer;
+  if( !PyErr_Occurred() ){
+
+    return buffer;
+
+  } else {
+
+    return NULL;
+
+  }
 
 }
 
@@ -250,7 +291,6 @@ std::string etf_pack_item(PyObject* temp){
       if( !PyErr_Occurred() ){
 
         PyErr_SetString(PyExc_RuntimeError, "Number too large to pack.");
-        return NULL;
 
       }
 
@@ -265,7 +305,6 @@ std::string etf_pack_item(PyObject* temp){
         PyErr_SetString(PyExc_RuntimeError, "Earl wasn't able to migrate the Python Unicode data to memory.");
 
       }
-      return NULL;
 
     }else{
 
@@ -300,7 +339,6 @@ std::string etf_pack_item(PyObject* temp){
       PyErr_SetString(PyExc_TypeError, "Earl can't pack one of the types you gave it!");
 
     }
-    return NULL;
 
   }
 
@@ -367,18 +405,25 @@ PyObject* etfup_bytes(PyObject* item, Py_ssize_t len){
 
           std::string strbuf;
 
-          for( unsigned nb = 0; nb < length; nb++ ){
+          if( length ){
 
-            strbuf.append(1, buffer[pos+nb]);
+            for( unsigned nb = 0; nb < length; nb++ ){
+
+              strbuf.append(1, buffer[pos+nb]);
+
+            }
+
+            strbuf.append(1, '\0');
+            pos += length+1;
+
+          } else {
+
+            strbuf.append(1, '\0');
+            pos++;
 
           }
 
-          strbuf.append(1, '\0');
-
-
-
           PyObject* held_return = PyUnicode_FromString(strbuf.c_str());
-          pos += length+1;
           return held_return;
 
         } else if( buffer[pos] == SMALL_TUPLE_EXT or buffer[pos] == LARGE_TUPLE_EXT ){
@@ -723,6 +768,7 @@ static PyObject* earl_pack(PyObject* self, PyObject *args){
         PyErr_SetString(PyExc_TypeError, "Earl wasn't able to unpack all your arguments for some reason.");
 
       }
+
       return NULL;
 
     }
@@ -731,13 +777,21 @@ static PyObject* earl_pack(PyObject* self, PyObject *args){
 
   }
 
-  if( len > 1 ){
+  if( len > 1 and !PyErr_Occurred() ){
 
     package += NIL_EXT;
 
   }
 
-  return Py_BuildValue("y#", package.c_str(), package.length());
+  if( !PyErr_Occurred() ){
+
+    return Py_BuildValue("y#", package.c_str(), package.length());
+
+  } else {
+
+    return NULL;
+
+  }
 
 }
 
