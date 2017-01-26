@@ -505,7 +505,7 @@ PyObject* etfup_item(char *buffer, int &pos){
     }
 
     PyObject* held_return = PyUnicode_FromString(strbuf.c_str());
-    pos += length+1;
+    pos += length;
     return held_return;
 
   } else if( buffer[pos] == SMALL_TUPLE_EXT or buffer[pos] == LARGE_TUPLE_EXT ){
@@ -813,7 +813,17 @@ static PyObject* earl_unpack(PyObject* self, PyObject *args){
 
         if( PyBytes_Check(temp) ){
 
-            return Py_BuildValue("O", etfup_bytes(temp, PyBytes_Size(temp)));
+            PyObject* final_object = etfup_bytes(temp, PyBytes_Size(temp));
+
+            if( !PyErr_Occurred() ){
+
+              return Py_BuildValue("O", final_object);
+
+            } else {
+
+              return NULL;
+
+            }
 
         } else {
 
