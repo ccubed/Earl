@@ -27,10 +27,12 @@ const char BINARY_EXT = 'm';
 const char SMALL_BIG_EXT = 'n';
 const char LARGE_BIG_EXT = 'o';
 const char MAP_EXT = 't';
+const char ATOM_EXT = 'd';
+const char ATOM_UTF_EXT = 'v';
+const char ATOM_UTF_SMALL_EXT = 'w';
 
 #if _MSC_VER // MSVC doesn't support keywords
-#define or ||
-#define and &&
+#include <iso646.h>
 #endif
 
 
@@ -44,6 +46,7 @@ std::string etfp_tuple(PyObject* tuple);
 std::string etfp_set(PyObject* set);
 std::string etfp_list(PyObject* list);
 std::string etfp_dict(PyObject* dict);
+std::string etfp_atom_utf(PyObject* text);
 std::string etf_pack_item(PyObject* object);
 // Unpacking Functions
 PyObject* etfup_bytes(PyObject* item);
@@ -65,7 +68,7 @@ extern "C" {
 std::string etfp_small_int(long value){
 
   std::string buffer(1, SMALL_INTEGER_EXT);
-  buffer += char(value);
+  buffer.push_back(char(value));  
   return buffer;
 
 }
@@ -75,10 +78,10 @@ std::string etfp_big_int(long value){
   int temp = int(value);
 
   std::string buffer(1, INTEGER_EXT);
-  buffer += ((temp >> 24) & 0xFF);
-  buffer += ((temp >> 16) & 0xFF);
-  buffer += ((temp >> 8) & 0xFF);
-  buffer += (temp & 0xFF);
+  buffer.push_back(((temp >> 24) & 0xFF));
+  buffer.push_back(((temp >> 16) & 0xFF));
+  buffer.push_back(((temp >> 8) & 0xFF));
+  buffer.push_back((temp & 0xFF));
 
   return buffer;
 
@@ -86,44 +89,25 @@ std::string etfp_big_int(long value){
 
 std::string etfp_string(PyObject *value){
 
-  int len = PyUnicode_GET_LENGTH(value);
-  int kind = PyUnicode_KIND(value);
+  char *buffer;
+  Py_ssize_t pbl;
 
-  if (!kind){
+  if( PyBytes_AsStringAndSize(value, &buffer, &pbl) == -1 ){
 
-      if ( !PyErr_Occurred() ){
-
-          PyErr_SetString(PyExc_RuntimeError, "Failed to process the python string.");
-
-      }
-
-  } else {
-
-    std::string buffer(1, STRING_EXT);
-    buffer += (len >> 8) & 0xFF;
-    buffer += len & 0xFF;
-
-    if( len > 0 ){
-
-      for( int i={0}; i < len; i++ ){
-
-          buffer += char(PyUnicode_READ(kind, PyUnicode_DATA(value), i));
-
-      }
-
-    } else {
-
-      buffer += '\0';
-
-    }
-
-    return buffer;
+    PyErr_SetString(PyExc_RuntimeError, "Unable to convert the bytes object to a char array.");
+    return NULL;
 
   }
+
+  std::string byte_stream(1, STRING_EXT);
+  byte_stream.append(buffer, pbl);
+  return byte_stream;
 
 }
 
 std::string etfp_float(double value){
+
+  // This doesn't work right now 
 
   std::string buffer(1, FLOAT_IEEE_EXT);
 
@@ -147,14 +131,14 @@ std::string etfp_tuple(PyObject* tuple){
 
   if( len > 256 ){
 
-    buffer += ((len >> 24) & 0xFF);
-    buffer += ((len >> 16) & 0xFF);
-    buffer += ((len >> 8) & 0xFF);
-    buffer += (len & 0xFF);
+    buffer.push_back(((len >> 24) & 0xFF));
+    buffer.push_back(((len >> 16) & 0xFF));
+    buffer.push_back(((len >> 8) & 0xFF));
+    buffer.push_back((len & 0xFF));
 
   } else {
 
-    buffer += (len & 0xFF);
+    buffer.push_back((len & 0xFF));
 
   }
 
@@ -183,10 +167,10 @@ std::string etfp_set(PyObject* set){
   Py_ssize_t len = PySet_Size(set);
   std::string buffer(1, LIST_EXT);
 
-  buffer += ((len >> 24) & 0xFF);
-  buffer += ((len >> 16) & 0xFF);
-  buffer += ((len >> 8) & 0xFF);
-  buffer += (len & 0xFF);
+  buffer.push_back(((len >> 24) & 0xFF));
+  buffer.push_back(((len >> 16) & 0xFF));
+  buffer.push_back(((len >> 8) & 0xFF));
+  buffer.push_back((len & 0xFF));
 
   for( int ii={0}; ii < len; ii++ ){
 
@@ -197,7 +181,7 @@ std::string etfp_set(PyObject* set){
 
   if( !PyErr_Occurred() ){
 
-    buffer += NIL_EXT;
+    buffer.push_back(NIL_EXT);
     return buffer;
 
   } else {
@@ -213,10 +197,10 @@ std::string etfp_list(PyObject* list){
   Py_ssize_t len = PyList_Size(list);
   std::string buffer(1, LIST_EXT);
 
-  buffer += ((len >> 24) & 0xFF);
-  buffer += ((len >> 16) & 0xFF);
-  buffer += ((len >> 8) & 0xFF);
-  buffer += (len & 0xFF);
+  buffer.push_back(((len >> 24) & 0xFF));
+  buffer.push_back(((len >> 16) & 0xFF));
+  buffer.push_back(((len >> 8) & 0xFF));
+  buffer.push_back((len & 0xFF));
 
   for( int ii={0}; ii < len; ii++ ){
 
@@ -227,7 +211,7 @@ std::string etfp_list(PyObject* list){
 
   if( !PyErr_Occurred() ){
 
-    buffer += NIL_EXT;
+    buffer.push_back(NIL_EXT);
     return buffer;
 
   } else {
@@ -243,10 +227,10 @@ std::string etfp_dict(PyObject* dict){
   Py_ssize_t len = PyDict_Size(dict);
   std::string buffer(1, MAP_EXT);
 
-  buffer += ((len >> 24) & 0xFF);
-  buffer += ((len >> 16) & 0xFF);
-  buffer += ((len >> 8) & 0xFF);
-  buffer += (len & 0xFF);
+  buffer.push_back(((len >> 24) & 0xFF));
+  buffer.push_back(((len >> 16) & 0xFF));
+  buffer.push_back(((len >> 8) & 0xFF));
+  buffer.push_back((len & 0xFF));
 
   len = 0;
   PyObject *k, *v;
@@ -265,6 +249,48 @@ std::string etfp_dict(PyObject* dict){
   } else {
 
     return NULL;
+
+  }
+
+}
+
+std::string etfp_atom_utf(PyObject* temp){
+
+  int len = PyUnicode_GET_LENGTH(temp);
+  int kind = PyUnicode_KIND(temp);
+
+  if( !kind ){
+
+    if( !PyErr_Occurred() ){
+
+      PyErr_SetString(PyExc_RuntimeError, "Failed to process the python string.");
+
+    }
+
+    return NULL;
+
+  } else {
+
+    std::string buffer(1, ATOM_UTF_EXT);
+    buffer.push_back(((len*kind) >> 8) & 0xFF);
+    buffer.push_back((len*kind) & 0xFF);
+
+    if( len > 0 ){
+
+      for( int i={0}; i < len; i++ ){
+
+        auto x = PyUnicode_READ(kind, PyUnicode_DATA(temp), i);
+        buffer.append(reinterpret_cast<char*>(&x), kind);
+
+      }
+
+    } else {
+
+      buffer.push_back('\0');
+
+    }
+
+    return buffer;
 
   }
 
@@ -308,7 +334,7 @@ std::string etf_pack_item(PyObject* temp){
 
     }else{
 
-      buffer += etfp_string(temp);
+      buffer += etfp_atom_utf(temp);
 
     }
 
@@ -331,6 +357,10 @@ std::string etf_pack_item(PyObject* temp){
   }else if( PyDict_Check(temp) ){
 
     buffer += etfp_dict(temp);
+
+  }else if( PyBytes_Check(temp) ){
+
+    buffer += etfp_string(temp);
 
   }else{
 
@@ -396,7 +426,7 @@ PyObject* etfup_bytes(PyObject* item, Py_ssize_t len){
 
           objects.push_back(etfup_map(buffer, pos));
 
-        } else if( buffer[pos] == STRING_EXT ){
+        } else if( buffer[pos] == ATOM_UTF_EXT ){
 
           int length = 0;
           length = (length << 8) + buffer[pos+1];
@@ -409,21 +439,19 @@ PyObject* etfup_bytes(PyObject* item, Py_ssize_t len){
 
             for( unsigned nb = 0; nb < length; nb++ ){
 
-              strbuf.append(1, buffer[pos+nb]);
+              strbuf.push_back(buffer[pos+nb]);
 
             }
 
-            strbuf.append(1, '\0');
-            pos += length+1;
+            pos += length;
 
           } else {
 
-            strbuf.append(1, '\0');
             pos++;
 
           }
 
-          PyObject* held_return = PyUnicode_FromString(strbuf.c_str());
+          PyObject* held_return = PyUnicode_FromStringAndSize(strbuf.c_str(), strbuf.length());
           return held_return;
 
         } else if( buffer[pos] == SMALL_TUPLE_EXT or buffer[pos] == LARGE_TUPLE_EXT ){
@@ -489,7 +517,7 @@ PyObject* etfup_item(char *buffer, int &pos){
 
     return etfup_map(buffer, pos);
 
-  } else if( buffer[pos] == STRING_EXT ){
+  } else if( buffer[pos] == ATOM_UTF_EXT ){
 
     int length = 0;
     length = (length << 8) + buffer[pos+1];
@@ -504,7 +532,7 @@ PyObject* etfup_item(char *buffer, int &pos){
 
     }
 
-    PyObject* held_return = PyUnicode_FromString(strbuf.c_str());
+    PyObject* held_return = PyUnicode_FromStringAndSize(strbuf.c_str(), strbuf.length());
     pos += length;
     return held_return;
 
@@ -563,6 +591,8 @@ PyObject* etfup_int(char *buffer, int &pos){
 
 PyObject* etfup_float_new(char *buffer, int &pos){
 
+  // This doesn't work yet
+
   pos += 1;
   double upd;
 
@@ -575,6 +605,8 @@ PyObject* etfup_float_new(char *buffer, int &pos){
 }
 
 PyObject* etfup_float_old(char *buffer, int &pos){
+
+  // Theoretically this works?
 
   double upd = 0.0;
   pos += 1;

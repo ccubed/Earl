@@ -1,6 +1,0 @@
-earl.cpp
-setup.py
-Earl.egg-info/PKG-INFO
-Earl.egg-info/SOURCES.txt
-Earl.egg-info/dependency_links.txt
-Earl.egg-info/top_level.txt

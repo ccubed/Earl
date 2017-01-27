@@ -18,11 +18,13 @@ Currently Earl supports these features.
 * LIST_EXT
 * STRING_EXT
 * MAP_EXT
+* ATOM_UTF8
 
 # Python Types to Pack Types
 * Integers < 256: SMALL_INTEGER_EXT
 * Integers >= 256: INTEGER_EXT
-* String/Unicode: STRING_EXT
+* String/Unicode: ATOM_UTF8
+* Bytes: STRING_EXT (If more than 65535, LIST_EXT)
 * Dictionary: MAP_EXT
 * Tuple: SMALL_TUPLE_EXT/LARGE_TUPLE_EXT (Depending on Size)
 * Lists/Sets: LIST_EXT
@@ -51,7 +53,7 @@ This code is C++ accessing individual bytes, which means it is fairly fast. Over
 ## Actual Benchmarks
 
 # Packing
-```python
+```
 click@DESKTOP-OCNKBTI C:\Users\click\Git\cpp\Earl
 > python -m timeit --setup="import earl" "earl.pack(120)"
 10000000 loops, best of 3: 0.185 usec per loop
@@ -78,7 +80,7 @@ click@DESKTOP-OCNKBTI C:\Users\click\Git\cpp\Earl
 ```
 
 # Unpacking
-```python
+```
 click@DESKTOP-OCNKBTI C:\Users\click\Git\cpp\Earl
 > python -m timeit --setup="import earl;a=earl.pack(120)" "earl.unpack(a)"
 10000000 loops, best of 3: 0.188 usec per loop
