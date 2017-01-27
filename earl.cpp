@@ -292,7 +292,6 @@ std::string etfp_atom_utf(PyObject* temp){
 
     } else {
 
-
         if( pbl > 0 ){
 
           buffer.push_back((pbl >> 8) & 0xFF);
@@ -303,7 +302,6 @@ std::string etfp_atom_utf(PyObject* temp){
 
           buffer.push_back((pbl >> 8) & 0xFF);
           buffer.push_back(pbl & 0xFF);
-          buffer.append('\0');
 
         }
 
