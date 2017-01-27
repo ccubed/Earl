@@ -791,9 +791,19 @@ PyObject* etfup_atom(char* buffer, int &pos){
 
   }
 
-  PyObject* held_return = PyUnicode_Decode(strbuf.c_str(), strbuf.length(), "latin-1", "strict");
-  pos += length;
-  return held_return;
+  if( strbuf == "nil" ){
+
+    PyObject* held_return = Py_None;
+    pos += 3;
+    return held_return;
+
+  } else {
+
+    PyObject* held_return = PyUnicode_Decode(strbuf.c_str(), strbuf.length(), "latin-1", "strict");
+    pos += length;
+    return held_return;
+
+  }
 
 }
 
@@ -812,9 +822,19 @@ PyObject* etfup_atom_utf(char* buffer, int &pos){
 
   }
 
-  PyObject* held_return = PyUnicode_Decode(strbuf.c_str(), strbuf.length(), "utf-8", "strict");
-  pos += length;
-  return held_return;
+  if( strbuf == "nil" ){
+
+    PyObject* held_return = Py_None;
+    pos += 3;
+    return held_return;
+
+  } else {
+
+    PyObject* held_return = PyUnicode_Decode(strbuf.c_str(), strbuf.length(), "utf-8", "strict");
+    pos += length;
+    return held_return;
+
+  }
 
 }
 
@@ -842,8 +862,17 @@ PyObject* etfup_atom_utf_small(char* buffer, int &pos){
 
   }
 
-  PyObject* held_return = PyUnicode_Decode(strbuf.c_str(), strbuf.length(), "utf-8", "strict");
-  return held_return;
+  if( strbuf == "nil" ){
+
+    PyObject* held_return = Py_None;
+    return held_return;
+
+  } else {
+
+    PyObject* held_return = PyUnicode_Decode(strbuf.c_str(), strbuf.length(), "utf-8", "strict");
+    return held_return;
+
+  }
 
 }
 
