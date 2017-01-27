@@ -1,6 +1,6 @@
 # Earl
 Earl is the fanciest C++ extension for Python that allows External Term Format packing and unpacking.
-This library can support packing and unpacking the External Term Format made popular by Erlang in Python. Written in C++ using the Python C API, it should be 
+This library can support packing and unpacking the External Term Format made popular by Erlang in Python. Written in C++ using the Python C API, it should be
 marginally usable across the various Python implementations, but for now I can guarantee CPython because that's what it was built against.
 
 # Version
@@ -18,7 +18,7 @@ Currently Earl supports these features.
 * LIST_EXT
 * STRING_EXT
 * MAP_EXT
-* ATOM_UTF8
+* ATOM_UTF8_EXT
 
 # Python Types to Pack Types
 * Integers < 256: SMALL_INTEGER_EXT
@@ -38,6 +38,10 @@ Currently Earl supports these features.
 * LIST_EXT
 * STRING_EXT
 * MAP_EXT
+* ATOM_UTF8_EXT
+* SMALL_ATOM_UTF8_EXT
+* ATOM_EXT
+* BINARY_EXT
 
 Development Notes:
 * Ideally, only one item is provided to unpack, but it can handle many items.
@@ -51,57 +55,66 @@ Development Notes:
 This code is C++ accessing individual bytes, which means it is fairly fast. Overall, the speed depends on how many items you ask it to unpack or pack and how complex each item is. This is to be expected. Depending on that, the speeds can range from nanoseconds to microseconds.
 
 ## Actual Benchmarks
+Benchmarks updated as of 1.5. Packing and Unpacking now include a complex example.
 
 # Packing
 ```
-click@DESKTOP-OCNKBTI C:\Users\click\Git\cpp\Earl
+click@DESKTOP-QL2J54T C:\Users\click\Documents\GitHub\Earl
 > python -m timeit --setup="import earl" "earl.pack(120)"
-10000000 loops, best of 3: 0.185 usec per loop
+10000000 loops, best of 3: 0.176 usec per loop
 
-click@DESKTOP-OCNKBTI C:\Users\click\Git\cpp\Earl
+click@DESKTOP-QL2J54T C:\Users\click\Documents\GitHub\Earl
 > python -m timeit --setup="import earl" "earl.pack(12000)"
-1000000 loops, best of 3: 0.2 usec per loop
+10000000 loops, best of 3: 0.183 usec per loop
 
-click@DESKTOP-OCNKBTI C:\Users\click\Git\cpp\Earl
+click@DESKTOP-QL2J54T C:\Users\click\Documents\GitHub\Earl
 > python -m timeit --setup="import earl" "earl.pack((1,2,3))"
-1000000 loops, best of 3: 0.347 usec per loop
+1000000 loops, best of 3: 0.322 usec per loop
 
-click@DESKTOP-OCNKBTI C:\Users\click\Git\cpp\Earl
+click@DESKTOP-QL2J54T C:\Users\click\Documents\GitHub\Earl
 > python -m timeit --setup="import earl" "earl.pack([1,2,3])"
-1000000 loops, best of 3: 0.402 usec per loop
+1000000 loops, best of 3: 0.368 usec per loop
 
-click@DESKTOP-OCNKBTI C:\Users\click\Git\cpp\Earl
+click@DESKTOP-QL2J54T C:\Users\click\Documents\GitHub\Earl
 > python -m timeit --setup="import earl" "earl.pack({1,2,3})"
-1000000 loops, best of 3: 0.466 usec per loop
+1000000 loops, best of 3: 0.413 usec per loop
 
-click@DESKTOP-OCNKBTI C:\Users\click\Git\cpp\Earl
+click@DESKTOP-QL2J54T C:\Users\click\Documents\GitHub\Earl
 > python -m timeit --setup="import earl" "earl.pack({1:2, 3:4})"
-1000000 loops, best of 3: 0.542 usec per loop
+1000000 loops, best of 3: 0.481 usec per loop
+
+click@DESKTOP-QL2J54T C:\Users\click\Documents\GitHub\Earl
+> python -m timeit --setup="import earl" "a=earl.pack({1:{'d':[1,2,3], '_trace': 12000}})"
+1000000 loops, best of 3: 1.37 usec per loop
 ```
 
 # Unpacking
 ```
-click@DESKTOP-OCNKBTI C:\Users\click\Git\cpp\Earl
+click@DESKTOP-QL2J54T C:\Users\click\Documents\GitHub\Earl
 > python -m timeit --setup="import earl;a=earl.pack(120)" "earl.unpack(a)"
-10000000 loops, best of 3: 0.188 usec per loop
+10000000 loops, best of 3: 0.185 usec per loop
 
-click@DESKTOP-OCNKBTI C:\Users\click\Git\cpp\Earl
+click@DESKTOP-QL2J54T C:\Users\click\Documents\GitHub\Earl
 > python -m timeit --setup="import earl;a=earl.pack(12000)" "earl.unpack(a)"
-1000000 loops, best of 3: 0.199 usec per loop
+10000000 loops, best of 3: 0.2 usec per loop
 
-click@DESKTOP-OCNKBTI C:\Users\click\Git\cpp\Earl
+click@DESKTOP-QL2J54T C:\Users\click\Documents\GitHub\Earl
 > python -m timeit --setup="import earl;a=earl.pack((1,2,3))" "earl.unpack(a)"
-1000000 loops, best of 3: 0.251 usec per loop
+1000000 loops, best of 3: 0.247 usec per loop
 
-click@DESKTOP-OCNKBTI C:\Users\click\Git\cpp\Earl
+click@DESKTOP-QL2J54T C:\Users\click\Documents\GitHub\Earl
 > python -m timeit --setup="import earl;a=earl.pack([1,2,3])" "earl.unpack(a)"
-1000000 loops, best of 3: 0.269 usec per loop
+1000000 loops, best of 3: 0.279 usec per loop
 
-click@DESKTOP-OCNKBTI C:\Users\click\Git\cpp\Earl
+click@DESKTOP-QL2J54T C:\Users\click\Documents\GitHub\Earl
 > python -m timeit --setup="import earl;a=earl.pack({1,2,3})" "earl.unpack(a)"
-1000000 loops, best of 3: 0.27 usec per loop
+1000000 loops, best of 3: 0.257 usec per loop
 
-click@DESKTOP-OCNKBTI C:\Users\click\Git\cpp\Earl
+click@DESKTOP-QL2J54T C:\Users\click\Documents\GitHub\Earl
 > python -m timeit --setup="import earl;a=earl.pack({1:2, 3:4})" "earl.unpack(a)"
-1000000 loops, best of 3: 0.634 usec per loop
+1000000 loops, best of 3: 0.604 usec per loop
+
+click@DESKTOP-QL2J54T C:\Users\click\Documents\GitHub\Earl
+> python -m timeit --setup="import earl;a=earl.pack({1:{'d':[1,2,3], '_trace': 12000}})" "earl.unpack(a)"
+1000000 loops, best of 3: 1.24 usec per loop
 ```

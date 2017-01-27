@@ -58,6 +58,11 @@ PyObject* etfup_float_new(char *buffer, int &pos);
 PyObject* etfup_tuple(char *buffer, int &pos);
 PyObject* etfup_list(char *buffer, int &pos);
 PyObject* etfup_map(char *buffer, int &pos);
+PyObject* etfup_atom(char *buffer, int &pos);
+PyObject* etfup_atom_utf(char *buffer, int &pos);
+PyObject* etfup_atom_utf_small(char *buffer, int &pos);
+PyObject* etfup_string(char *buffer, int &pos);
+PyObject* etfup_binary(char *buffer, int &pos);
 // Extern C Functions
 extern "C" {
   static PyObject* earl_pack(PyObject* self, PyObject* args);
@@ -68,7 +73,7 @@ extern "C" {
 std::string etfp_small_int(long value){
 
   std::string buffer(1, SMALL_INTEGER_EXT);
-  buffer.push_back(char(value));  
+  buffer.push_back(char(value));
   return buffer;
 
 }
@@ -107,7 +112,7 @@ std::string etfp_string(PyObject *value){
 
 std::string etfp_float(double value){
 
-  // This doesn't work right now 
+  // This doesn't work right now
 
   std::string buffer(1, FLOAT_IEEE_EXT);
 
@@ -256,10 +261,9 @@ std::string etfp_dict(PyObject* dict){
 
 std::string etfp_atom_utf(PyObject* temp){
 
-  int len = PyUnicode_GET_LENGTH(temp);
-  int kind = PyUnicode_KIND(temp);
+  PyObject* utf8_str = PyUnicode_AsUTF8String(temp);
 
-  if( !kind ){
+  if( !utf8_str ){
 
     if( !PyErr_Occurred() ){
 
@@ -272,25 +276,40 @@ std::string etfp_atom_utf(PyObject* temp){
   } else {
 
     std::string buffer(1, ATOM_UTF_EXT);
-    buffer.push_back(((len*kind) >> 8) & 0xFF);
-    buffer.push_back((len*kind) & 0xFF);
 
-    if( len > 0 ){
+    char *byte_stream;
+    Py_ssize_t pbl;
 
-      for( int i={0}; i < len; i++ ){
+    if( PyBytes_AsStringAndSize(utf8_str, &byte_stream, &pbl) == -1 ){
 
-        auto x = PyUnicode_READ(kind, PyUnicode_DATA(temp), i);
-        buffer.append(reinterpret_cast<char*>(&x), kind);
+      if( !PyErr_Occurred() ){
+
+        PyErr_SetString(PyExc_RuntimeError, "Unable to convert the UTF8 string to bytes.");
 
       }
 
+      return NULL;
+
     } else {
 
-      buffer.push_back('\0');
+
+        if( pbl > 0 ){
+
+          buffer.push_back((pbl >> 8) & 0xFF);
+          buffer.push_back(pbl & 0xFF);
+          buffer.append(byte_stream, pbl);
+
+        } else {
+
+          buffer.push_back((0 >> 8) & 0xFF);
+          buffer.push_back(0 & 0xFF);
+          buffer.append('\0');
+
+        }
+
+        return buffer;
 
     }
-
-    return buffer;
 
   }
 
@@ -390,75 +409,67 @@ PyObject* etfup_bytes(PyObject* item, Py_ssize_t len){
     }
 
     std::vector<PyObject*> objects;
-    int pos = 0;
+    int pos = 1;  // ignore the first char. It just signifies version.
 
     for( pos; pos < len; pos++ ){
 
-        if( buffer[pos] == INTEGER_EXT or buffer[pos] == SMALL_INTEGER_EXT ){
+      if( buffer[pos] == INTEGER_EXT or buffer[pos] == SMALL_INTEGER_EXT ){
 
-          if( buffer[pos] == INTEGER_EXT ){
+        if( buffer[pos] == INTEGER_EXT ){
 
-            objects.push_back(etfup_int(buffer, pos));
+          objects.push_back(etfup_int(buffer, pos));
 
-          } else {
+        } else {
 
-            objects.push_back(etfup_small_int(buffer, pos));
-
-          }
-
-        } else if( buffer[pos] == FLOAT_IEEE_EXT or buffer[pos] == FLOAT_EXT ){
-
-          if( buffer[pos] == FLOAT_IEEE_EXT ){
-
-            objects.push_back(etfup_float_new(buffer, pos));
-
-          } else {
-
-            objects.push_back(etfup_float_old(buffer, pos));
-
-          }
-
-        } else if( buffer[pos] == LIST_EXT ){
-
-          objects.push_back(etfup_list(buffer, pos));
-
-        } else if( buffer[pos] == MAP_EXT ){
-
-          objects.push_back(etfup_map(buffer, pos));
-
-        } else if( buffer[pos] == ATOM_UTF_EXT ){
-
-          int length = 0;
-          length = (length << 8) + buffer[pos+1];
-          length = (length << 8) + buffer[pos+2];
-          pos += 3;
-
-          std::string strbuf;
-
-          if( length ){
-
-            for( unsigned nb = 0; nb < length; nb++ ){
-
-              strbuf.push_back(buffer[pos+nb]);
-
-            }
-
-            pos += length;
-
-          } else {
-
-            pos++;
-
-          }
-
-          PyObject* held_return = PyUnicode_Decode(strbuf.c_str(), strbuf.length(), "utf-8", "strict");
-          return held_return;
-
-        } else if( buffer[pos] == SMALL_TUPLE_EXT or buffer[pos] == LARGE_TUPLE_EXT ){
-
-          objects.push_back(etfup_tuple(buffer, pos));
+          objects.push_back(etfup_small_int(buffer, pos));
 
         }
+
+      } else if( buffer[pos] == FLOAT_IEEE_EXT or buffer[pos] == FLOAT_EXT ){
+
+        if( buffer[pos] == FLOAT_IEEE_EXT ){
+
+          objects.push_back(etfup_float_new(buffer, pos));
+
+        } else {
+
+          objects.push_back(etfup_float_old(buffer, pos));
+
+        }
+
+      } else if( buffer[pos] == LIST_EXT ){
+
+        objects.push_back(etfup_list(buffer, pos));
+
+      } else if( buffer[pos] == MAP_EXT ){
+
+        objects.push_back(etfup_map(buffer, pos));
+
+      } else if( buffer[pos] == ATOM_UTF_EXT ){
+
+        objects.push_back(etfup_atom_utf(buffer, pos));
+
+      } else if( buffer[pos] == SMALL_TUPLE_EXT or buffer[pos] == LARGE_TUPLE_EXT ){
+
+        objects.push_back(etfup_tuple(buffer, pos));
+
+      } else if( buffer[pos] == ATOM_UTF_SMALL_EXT ){
+
+        objects.push_back(etfup_atom_utf_small(buffer, pos));
+
+      } else if( buffer[pos] == ATOM_EXT ){
+
+        objects.push_back(etfup_atom(buffer, pos));
+
+      } else if( buffer[pos] == STRING_EXT ){
+
+        objects.push_back(etfup_string(buffer, pos));
+
+      } else if( buffer[pos] == BINARY_EXT ){
+
+        objects.push_back(etfup_binary(buffer, pos));
+
+      }
 
     }
 
@@ -466,7 +477,7 @@ PyObject* etfup_bytes(PyObject* item, Py_ssize_t len){
 
     PyObject* tlist = PyList_New(objects.size());
 
-    for( int ii={0}; ii < objects.size(); ii++ ){
+    for( unsigned ii={0}; ii < objects.size(); ii++ ){
 
       if( PyList_SetItem(tlist, ii, objects[ii]) != 0 ){
 
@@ -475,6 +486,7 @@ PyObject* etfup_bytes(PyObject* item, Py_ssize_t len){
           PyErr_SetString(PyExc_RuntimeError, "Earl encountered an error building the python objects.");
 
         }
+
         return NULL;
 
       }
@@ -519,26 +531,27 @@ PyObject* etfup_item(char *buffer, int &pos){
 
   } else if( buffer[pos] == ATOM_UTF_EXT ){
 
-    int length = 0;
-    length = (length << 8) + buffer[pos+1];
-    length = (length << 8) + buffer[pos+2];
-    pos += 3;
+    return etfup_atom_utf(buffer, pos);
 
-    std::string strbuf;
+  } else if( buffer[pos] == ATOM_UTF_SMALL_EXT ){
 
-    for( unsigned nb = 0; nb < length; nb++ ){
-
-      strbuf.append(1, buffer[pos+nb]);
-
-    }
-
-    PyObject* held_return = PyUnicode_Decode(strbuf.c_str(), strbuf.length(), "utf-8", "strict");
-    pos += length;
-    return held_return;
+    return etfup_atom_utf_small(buffer, pos);
 
   } else if( buffer[pos] == SMALL_TUPLE_EXT or buffer[pos] == LARGE_TUPLE_EXT ){
 
     return etfup_tuple(buffer, pos);
+
+  } else if( buffer[pos] == ATOM_EXT ){
+
+    return etfup_atom(buffer, pos);
+
+  } else if( buffer[pos] == STRING_EXT ){
+
+    return etfup_string(buffer, pos);
+
+  } else if( buffer[pos] == BINARY_EXT ){
+
+    return etfup_binary(buffer, pos);
 
   } else {
 
@@ -696,9 +709,9 @@ PyObject* etfup_list(char *buffer, int &pos){
 
   }
 
-  if( buffer[pos+1] == NIL_EXT ){
+  if( buffer[pos] == NIL_EXT ){
 
-    pos += 2;
+    pos += 1;
 
   }
 
@@ -744,7 +757,7 @@ PyObject* etfup_map(char *buffer, int &pos){
 
   }
 
-  for( int ii={0}; ii < keys.size(); ii++ ){
+  for( unsigned ii={0}; ii < keys.size(); ii++ ){
 
     if( PyDict_SetItem(dict, keys[ii], values[ii]) != 0 ){
 
@@ -760,6 +773,121 @@ PyObject* etfup_map(char *buffer, int &pos){
   }
 
   return dict;
+
+}
+
+PyObject* etfup_atom(char* buffer, int &pos){
+
+  int length = 0;
+  length = (length << 8) + buffer[pos+1];
+  length = (length << 8) + buffer[pos+2];
+  pos += 3;
+
+  std::string strbuf;
+
+  for( int nb = 0; nb < length; nb++ ){
+
+    strbuf.append(1, buffer[pos+nb]);
+
+  }
+
+  PyObject* held_return = PyUnicode_Decode(strbuf.c_str(), strbuf.length(), "latin-1", "strict");
+  pos += length;
+  return held_return;
+
+}
+
+PyObject* etfup_atom_utf(char* buffer, int &pos){
+
+  int length = 0;
+  length = (length << 8) + buffer[pos+1];
+  length = (length << 8) + buffer[pos+2];
+  pos += 3;
+
+  std::string strbuf;
+
+  for( int nb = 0; nb < length; nb++ ){
+
+    strbuf.append(1, buffer[pos+nb]);
+
+  }
+
+  PyObject* held_return = PyUnicode_Decode(strbuf.c_str(), strbuf.length(), "utf-8", "strict");
+  pos += length;
+  return held_return;
+
+}
+
+PyObject* etfup_atom_utf_small(char* buffer, int &pos){
+
+  int length = 0;
+  length = (length << 8) + buffer[pos+1];
+  pos += 2;
+
+  std::string strbuf;
+
+  if( length ){
+
+    for( int nb = 0; nb < length; nb++ ){
+
+      strbuf.push_back(buffer[pos+nb]);
+
+    }
+
+    pos += length;
+
+  } else {
+
+    pos++;
+
+  }
+
+  PyObject* held_return = PyUnicode_Decode(strbuf.c_str(), strbuf.length(), "utf-8", "strict");
+  return held_return;
+
+}
+
+PyObject* etfup_binary(char* buffer, int &pos){
+
+  int len = 0;
+  len = (len << 8) + buffer[pos+1];
+  len = (len << 8) + buffer[pos+2];
+  len = (len << 8) + buffer[pos+3];
+  len = (len << 8) + buffer[pos+4];
+  pos += 5;
+
+  std::string strbuf;
+
+  for( int nb = 0; nb < len; nb++ ){
+
+    strbuf.push_back(buffer[pos+nb]);
+
+  }
+
+  pos += len;
+  PyObject* held_return = PyUnicode_Decode(strbuf.c_str(), strbuf.length(), NULL, "strict");
+  return held_return;
+
+}
+
+PyObject* etfup_string(char* buffer, int &pos){
+
+  int len = 0;
+  len = (len << 8) + buffer[pos+1];
+  len = (len << 8) + buffer[pos+2];
+  pos += 3;
+
+  std::string strbuf;
+
+  for( int nb = 0; nb < len; nb++ ){
+
+    strbuf.push_back(buffer[pos+nb]);
+
+  }
+
+  pos += len;
+  PyObject* held_return = PyUnicode_Decode(strbuf.c_str(), strbuf.length(), NULL, "strict");
+  return held_return;
 
 }
 
