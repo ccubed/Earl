@@ -451,7 +451,7 @@ PyObject* etfup_bytes(PyObject* item, Py_ssize_t len){
 
           }
 
-          PyObject* held_return = PyUnicode_FromStringAndSize(strbuf.c_str(), strbuf.length());
+          PyObject* held_return = PyUnicode_Decode(strbuf.c_str(), strbuf.length(), "utf-8", "strict");
           return held_return;
 
         } else if( buffer[pos] == SMALL_TUPLE_EXT or buffer[pos] == LARGE_TUPLE_EXT ){
@@ -532,7 +532,7 @@ PyObject* etfup_item(char *buffer, int &pos){
 
     }
 
-    PyObject* held_return = PyUnicode_FromStringAndSize(strbuf.c_str(), strbuf.length());
+    PyObject* held_return = PyUnicode_Decode(strbuf.c_str(), strbuf.length(), "utf-8", "strict");
     pos += length;
     return held_return;
 
