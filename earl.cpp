@@ -317,7 +317,7 @@ std::string etf_pack_item(PyObject* temp){
 
   std::string buffer;
 
-  if( PyLong_Check(temp) ){
+  if( PyLong_Check(temp) and !PyBool_Check(temp) ){
 
     long temp_int = PyLong_AsLong(temp);
 
@@ -378,6 +378,31 @@ std::string etf_pack_item(PyObject* temp){
   }else if( PyBytes_Check(temp) ){
 
     buffer += etfp_string(temp);
+
+  }else if( PyBool_Check(temp) ){
+
+    if( PyObject_IsTrue(temp) ){
+
+      buffer.push_back(ATOM_EXT);
+      buffer.push_back((4 >> 8) & 0xFF);
+      buffer.push_back(4 & 0xFF);
+      buffer += "true";
+
+    } else {
+
+      buffer.push_back(ATOM_EXT);
+      buffer.push_back((5 >> 8) & 0xFF);
+      buffer.push_back(5 & 0xFF);
+      buffer += "false";
+
+    }
+
+  }else if( temp == Py_None ){
+
+    buffer.push_back(ATOM_EXT);
+    buffer.push_back((3 >> 8) & 0xFF);
+    buffer.push_back(3 & 0xFF);
+    buffer += "nil";
 
   }else{
 

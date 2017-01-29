@@ -3,9 +3,9 @@ from setuptools import setup, Extension
 module1 = Extension('earl', sources = ['earl.cpp'])
 
 setup (
-	name = "Earl",
-	version = "1.6.1",
-	description = "Earl, the fanciest External Term Format packer and unpacker available for Python.",
+	name = "Earl ETF",
+	version = "1.7",
+	description = "Earl-etf, the fanciest External Term Format packer and unpacker available for Python.",
 	ext_modules = [module1],
 	url="https://github.com/ccubed/Earl",
 	author="Charles Click",
