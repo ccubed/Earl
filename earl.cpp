@@ -646,14 +646,16 @@ private:
             return NULL;
         }
 
-        if(strncmp(atom, "nil", 3) == 0) {
-            Py_RETURN_NONE;
-        }
-        else if(strncmp(atom, "true", 4) == 0) {
-            Py_RETURN_TRUE;
-        }
-        else if(strncmp(atom, "false", 5) == 0) {
-            Py_RETURN_FALSE;
+        if(length >= 3 && length <= 5) {
+            if(length == 3 && strncmp(atom, "nil", 3) == 0) {
+                Py_RETURN_NONE;
+            }
+            else if(length == 4 && strncmp(atom, "true", 4) == 0) {
+                Py_RETURN_TRUE;
+            }
+            else if(length == 5 && strncmp(atom, "false", 5) == 0) {
+                Py_RETURN_FALSE;
+            }
         }
 
         // we return atoms as UTF-8 encoded unicode strings
