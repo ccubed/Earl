@@ -4,7 +4,7 @@ module1 = Extension('earl', sources = ['earl.cpp'])
 
 setup (
 	name = "Earl ETF",
-	version = "1.7",
+	version = "2",
 	description = "Earl-etf, the fanciest External Term Format packer and unpacker available for Python.",
 	ext_modules = [module1],
 	url="https://github.com/ccubed/Earl",
