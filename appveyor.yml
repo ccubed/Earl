@@ -1,6 +1,7 @@
-matrix:
-  - PYTHON: "C:\\Python35"
-  - PYTHON: "C:\\Python36"
+environment:
+  matrix:
+  - Python: "C:\\Python35"
+  - Python: "C:\\Python36"
 build_script:
   - pip install cibuildwheel==0.2.0
   - cibuildwheel --output-dir wheelhouse
