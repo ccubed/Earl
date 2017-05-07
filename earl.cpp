@@ -2,8 +2,7 @@
  * Earl, the fanciest ETF Packer and Unpacker for Python.
  * Written as a C++ Extension for Maximum Effort and Speed.
  *
- * Version 1 Copyright 2016 Charles Click under the MIT License.
- * Version 2 Copyright 2017 Danny under the MIT License.
+ * Copyright 2016 Charles Click under the MIT License.
  */
 
 // Includes
