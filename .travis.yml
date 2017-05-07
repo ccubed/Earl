@@ -3,7 +3,7 @@ python:
   - "3.5"
 
 install:
-  - if [ $TRAVIS_OS_NAME = linux ]; then sudo apt-get install g++-4.8 gcc-4.8; else brew install gcc48; fi
+  - if [ $TRAVIS_OS_NAME = linux ]; then sudo apt-get install g++ gcc; else brew install gcc; fi
   
 env:
   global:
