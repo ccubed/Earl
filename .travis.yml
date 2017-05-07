@@ -1,3 +1,4 @@
+language: python
 env:
   global:
     - TWINE_USERNAME=ccubed
