@@ -1,0 +1,33 @@
+#include <iostream>
+#include <string>
+
+using namespace std;
+
+int main() {
+	
+    int temp = -1000;
+    unsigned char buffer[5];
+    string buff;
+    
+    buff += ((temp >> 24) & 0xFF);
+    buff += ((temp >> 16) & 0xFF);
+    buff += ((temp >> 8) & 0xFF);
+    buff += (temp & 0xFF);
+    buffer[0] = ((temp >> 24) & 0xFF);
+  	buffer[1] = ((temp >> 16) & 0xFF);
+  	buffer[2] = ((temp >> 8) & 0xFF);
+  	buffer[3] = (temp & 0xFF);
+  	
+  	int upd = 0;
+  	
+  	for( unsigned n = 0; n < sizeof(temp); n++ ){
+  		
+  		upd = (upd << 8) + buffer[n];
+  		
+  	}
+  	
+  	cout << temp << endl;
+  	cout << sizeof(buffer) << endl;
+  	cout << upd << endl;
+    
+}
