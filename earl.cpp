@@ -53,10 +53,12 @@ PyObject* earl_DecodeError;
 PyObject* earl_EncodeError;
 }
 
-enum encode_type {
-    str = 0,
-    bytes = 1,
-    atom = 2
+struct encode_type {
+    enum {
+        str = 0,
+        bytes = 1,
+        atom = 2
+    };
 };
 
 template<typename T>
