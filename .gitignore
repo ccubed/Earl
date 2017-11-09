@@ -27,3 +27,9 @@
 *.exe
 *.out
 *.app
+
+# Python artifacts
+/.cache
+/.tox
+__pycache__
+*.egg-info
